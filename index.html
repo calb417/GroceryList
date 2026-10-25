@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grocery List</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Grocery List">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#E1F5EE">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --bg:#E1F5EE;--card:#fff;--text:#04342C;--sub:#0F6E56;--accent:#0F6E56;--on-accent:#fff;
+  --chip:#E1F5EE;--chip-text:#085041;--border:#9FE1CB;--danger:#E24B4A;--muted:#0F6E5699;
+  --r:16px;--safe-b:env(safe-area-inset-bottom);--safe-t:env(safe-area-inset-top);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.35;transition:background .25s,color .25s}
+body{padding-top:var(--safe-t);padding-bottom:calc(76px + var(--safe-b));min-height:100vh;overscroll-behavior-y:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,select,textarea{font:inherit;font-size:16px;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:640px;margin:0 auto;padding:0 14px}
+.hidden{display:none!important}
+
+/* header */
+.top{display:flex;align-items:center;gap:8px;padding:12px 0 8px}
+.list-title{display:flex;align-items:center;gap:6px;font-size:26px;font-weight:700;letter-spacing:-.4px;min-width:0;flex:1;text-align:left}
+.list-title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-title svg{flex-shrink:0;opacity:.6}
+.pill{font-size:12px;font-weight:600;padding:5px 10px;border-radius:99px;background:var(--accent);color:var(--on-accent);white-space:nowrap}
+.pill.off{background:var(--card);color:var(--chip-text);border:1px solid var(--border)}
+.pill.err{background:var(--danger);color:#fff}
+.icon-btn{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--border);flex-shrink:0}
+.screen-title{font-size:26px;font-weight:700;letter-spacing:-.4px;padding:12px 0 8px}
+
+/* add bar */
+.addbar{display:flex;gap:8px;position:relative;margin-bottom:10px}
+.addbar input{border-radius:14px;padding:12px 14px;border-width:1.5px}
+.addbar .plus{width:48px;flex-shrink:0;border-radius:14px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center}
+.sugg{position:absolute;left:0;right:56px;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:14px;z-index:30;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.sugg button{display:block;width:100%;text-align:left;padding:11px 14px;border-bottom:1px solid var(--border)}
+.sugg button:last-child{border-bottom:0}
+.sugg small{display:block;color:var(--sub);font-size:12px}
+.field-wrap{position:relative}
+.field-wrap .sugg{right:0}
+
+/* trip filter */
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none;margin:0 -14px;padding-left:14px;padding-right:14px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;font-size:13px;font-weight:600;padding:6px 12px;border-radius:99px;background:var(--card);color:var(--chip-text);border:1px solid var(--border)}
+.chip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chips-label{flex-shrink:0;font-size:12px;color:var(--sub);align-self:center;font-weight:600}
+
+/* categories + rows */
+.cat-head{margin:14px 0 6px}
+.cat-pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 11px;border-radius:99px;letter-spacing:.2px}
+.group{background:var(--card);border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.row{position:relative;border-bottom:1px solid var(--border);overflow:hidden}
+.row:last-child{border-bottom:0}
+.swipe-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:20px;font-weight:600;font-size:14px}
+.row-main{position:relative;background:var(--card);display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:56px;transition:transform .2s}
+.row-main.dragging{transition:none}
+.circle{width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .15s}
+.circle svg{opacity:0;transition:opacity .2s}
+.circle:active{transform:scale(.88)}
+.row.checked .circle,.row.checking .circle{background:var(--accent)}
+.row.checked .circle svg,.row.checking .circle svg{opacity:1}
+.txt{flex:1;min-width:0}
+.nm{font-weight:600;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:opacity .2s}
+.sub{font-size:13px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.row.checked .nm,.row.checking .nm{text-decoration:line-through;opacity:.55}
+.row.checked .sub{opacity:.55}
+.chev{opacity:.45;transition:transform .2s;flex-shrink:0}
+.row.open .chev{transform:rotate(90deg)}
+.hint{font-size:12px;font-weight:700;color:var(--chip-text);background:var(--chip);border-radius:8px;padding:3px 7px;white-space:nowrap}
+.selbox{width:24px;height:24px;border-radius:7px;border:2px solid var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.row.sel .selbox{background:var(--accent)}
+.row.sel .row-main{background:var(--chip)}
+
+.exp{position:relative;background:var(--card);padding:0 14px 14px 52px;display:none}
+.row.open .exp{display:block;animation:fade .2s}
+@keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+.store-pills{display:flex;flex-wrap:wrap;gap:6px}
+.spill{font-size:13px;font-weight:600;padding:7px 12px;border-radius:99px;background:var(--chip);color:var(--chip-text);display:inline-flex;align-items:center;gap:5px}
+.spill:active{opacity:.7}
+.prow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.prow:last-child{border-bottom:0}
+.prow .sn{flex:1;min-width:0;font-size:14px;font-weight:600}
+.prow .sn small{display:block;font-weight:400;color:var(--sub);font-size:12px}
+.prow .pv{font-size:13px;text-align:right;white-space:nowrap}
+.prow .pv small{display:block;color:var(--sub);font-size:11px}
+.mini{font-size:12px;font-weight:700;padding:6px 10px;border-radius:10px;background:var(--chip);color:var(--chip-text);white-space:nowrap}
+.mini.solid{background:var(--accent);color:var(--on-accent)}
+.acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.act{font-size:13px;font-weight:600;padding:8px 12px;border-radius:12px;border:1px solid var(--border);display:inline-flex;align-items:center;gap:5px}
+.act.danger{color:var(--danger);border-color:var(--danger)}
+.notelink{font-size:12px;color:var(--sub);margin-top:8px}
+
+.got-head{display:flex;align-items:center;justify-content:space-between;margin:20px 0 6px}
+.got-head h3{margin:0;font-size:14px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px}
+.linkbtn{font-size:14px;font-weight:600;color:var(--accent)}
+
+.empty{text-align:center;padding:48px 20px;color:var(--sub)}
+.empty b{display:block;color:var(--text);font-size:18px;margin-bottom:6px}
+
+.totals{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:6px}
+.totals h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--sub)}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:14px}
+.totals .tm{font-size:12px;color:var(--sub)}
+.badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--accent);color:var(--on-accent);margin-left:6px}
+
+/* bottom tab bar */
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 0 calc(8px + var(--safe-b));z-index:40}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--sub);opacity:.7;width:90px}
+.tab.on{color:var(--accent);opacity:1}
+
+/* select bar */
+.selbar{position:fixed;left:10px;right:10px;bottom:calc(72px + var(--safe-b));background:var(--text);color:var(--bg);border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:8px;z-index:41;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:620px;margin:0 auto}
+.selbar .cnt{flex:1;font-weight:700;font-size:14px}
+.selbar button{font-size:13px;font-weight:700;padding:7px 10px;border-radius:10px;background:rgba(127,127,127,.25)}
+
+/* sheet */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:60;display:flex;align-items:flex-end;justify-content:center;animation:ofade .2s}
+@keyframes ofade{from{opacity:0}}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:8px 16px calc(18px + var(--safe-b));animation:up .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes up{from{transform:translateY(100%)}}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--border);margin:4px auto 10px}
+.sheet h2{margin:0 0 12px;font-size:20px}
+.sheet p{margin:0 0 12px;color:var(--sub);font-size:14px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:13px;font-weight:700;color:var(--sub);margin-bottom:5px}
+.seg{display:flex;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;padding:8px 4px;border-radius:9px;font-size:13px;font-weight:600;color:var(--sub)}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+.btns{display:flex;gap:10px;margin-top:16px}
+.btn{flex:1;padding:13px;border-radius:14px;font-weight:700;background:var(--card);border:1px solid var(--border);text-align:center}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.help{font-size:12px;color:var(--sub);margin-top:5px}
+.sheet-list .srow{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:8px}
+.sheet-list .srow.cur{border-color:var(--accent);border-width:2px}
+.srow .grow{flex:1;min-width:0}
+.srow .grow b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .grow small{color:var(--sub);font-size:12px}
+.handle{touch-action:none;padding:4px;opacity:.5;cursor:grab;flex-shrink:0}
+.dragging{z-index:5;position:relative;box-shadow:0 8px 20px rgba(0,0,0,.18);opacity:.95}
+.menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;font-weight:600;text-align:left}
+.menu-item.danger{color:var(--danger)}
+
+/* settings */
+.sec{margin:18px 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--sub)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card .line{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);min-height:52px;position:relative;background:var(--card)}
+.card .line:last-child{border-bottom:0}
+.line .grow{flex:1;min-width:0}
+.line .grow small{display:block;color:var(--sub);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pad{padding:14px}
+.switch{width:50px;height:30px;border-radius:99px;background:var(--border);position:relative;flex-shrink:0;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.switch.on{background:var(--accent)}
+.switch.on::after{transform:translateX(20px)}
+.schemes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
+.sch{border-radius:14px;padding:10px 6px 8px;border:2px solid transparent;font-size:11px;font-weight:700;text-align:center}
+.sch.on{border-color:var(--text)}
+.sch .sw{display:flex;justify-content:center;gap:3px;margin-bottom:6px}
+.sch .sw i{width:16px;height:16px;border-radius:50%;display:block;border:1px solid rgba(0,0,0,.08)}
+.dot{width:22px;height:22px;border-radius:50%;flex-shrink:0;border:1px solid rgba(0,0,0,.1)}
+.hues{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:8px 0}
+.hues button{height:44px;border-radius:12px;font-size:11px;font-weight:700}
+.tag{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--chip);color:var(--chip-text);margin-left:6px;vertical-align:1px}
+.ver{text-align:center;color:var(--sub);font-size:12px;margin:24px 0 8px}
+
+/* toast + errors */
+.toast{position:fixed;left:50%;bottom:calc(84px + var(--safe-b));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:11px 14px 11px 16px;border-radius:14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:14px;z-index:80;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:tin .2s}
+@keyframes tin{from{opacity:0;transform:translate(-50%,8px)}}
+.toast button{color:var(--bg);font-weight:800;text-decoration:underline;white-space:nowrap}
+#errbox{position:fixed;left:8px;right:8px;top:calc(8px + var(--safe-t));z-index:100;background:#A32D2D;color:#fff;border-radius:14px;padding:12px;font-size:13px;font-family:ui-monospace,Menlo,monospace;max-height:45vh;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#errbox b{font-family:-apple-system,sans-serif;font-size:14px}
+#errbox .eb{display:flex;gap:8px;margin-top:8px}
+#errbox .eb button{background:#fff;color:#A32D2D;border-radius:8px;padding:6px 10px;font-weight:700;font-family:-apple-system,sans-serif}
+.banner{background:var(--chip);color:var(--chip-text);border-radius:14px;padding:10px 12px;font-size:13px;margin-bottom:10px;display:flex;gap:10px;align-items:center}
+.banner b{color:var(--text)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="errbox" class="hidden"></div>
+<script>
+/* =====================================================================
+   ===  CONFIGURATION  =================================================
+   =====================================================================
+   Where the shared list data is saved on GitHub. Your token is NOT
+   stored here — you enter it in the app under Settings → Sync.      */
+const GH_OWNER = 'calb417';        // GitHub account
+const GH_REPO  = 'grocery-data';   // private repo that holds the lists
+const GH_FILE  = 'data.json';      // file inside that repo
+const APP_VERSION = '1.0';
+/* ===================================================================== */
+
+/* ---------- on-screen error display ---------- */
+const errors = [];
+function showError(msg){
+  errors.push(new Date().toLocaleTimeString() + ' — ' + msg);
+  const box = document.getElementById('errbox');
+  box.innerHTML = '<b>Something went wrong</b> (screenshot this)<div style="margin-top:6px;white-space:pre-wrap">' +
+    errors.slice(-5).map(esc).join('\n\n') + '</div><div class="eb"><button onclick="copyErrors()">Copy</button><button onclick="hideErrors()">Dismiss</button></div>';
+  box.classList.remove('hidden');
+}
+function hideErrors(){ errors.length = 0; document.getElementById('errbox').classList.add('hidden'); }
+function copyErrors(){ try{ navigator.clipboard.writeText(errors.join('\n\n') + '\n\nGrocery List v' + APP_VERSION); toast('Copied'); }catch(e){} }
+window.addEventListener('error', e => showError((e.message || 'Error') + (e.lineno ? ' (line ' + e.lineno + ')' : '')));
+window.addEventListener('unhandledrejection', e => showError('Promise: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason)));
+
+/* ---------- tiny helpers ---------- */
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const now = () => Date.now();
+const uid = p => p + '_' + now().toString(36) + Math.random().toString(36).slice(2, 7);
+const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const $ = s => document.querySelector(s);
+function todayStr(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function fmtDate(s){ if(!s) return ''; const [y,m,d] = s.split('-').map(Number); const dt = new Date(y, m-1, d);
+  const o = {month:'short', day:'numeric'}; if (y !== new Date().getFullYear()) o.year = 'numeric'; return dt.toLocaleDateString('en-US', o); }
+const money = n => '$' + n.toFixed(2);
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ showError('Could not save on this phone: ' + e.message); } }
+};
+
+/* ---------- color ramps + schemes ---------- */
+const RAMP = {
+  purple:['#EEEDFE','#CECBF6','#AFA9EC','#7F77DD','#534AB7','#3C3489','#26215C'],
+  teal:['#E1F5EE','#9FE1CB','#5DCAA5','#1D9E75','#0F6E56','#085041','#04342C'],
+  coral:['#FAECE7','#F5C4B3','#F0997B','#D85A30','#993C1D','#712B13','#4A1B0C'],
+  pink:['#FBEAF0','#F4C0D1','#ED93B1','#D4537E','#993556','#72243E','#4B1528'],
+  gray:['#F1EFE8','#D3D1C7','#B4B2A9','#888780','#5F5E5A','#444441','#2C2C2A'],
+  blue:['#E6F1FB','#B5D4F4','#85B7EB','#378ADD','#185FA5','#0C447C','#042C53'],
+  green:['#EAF3DE','#C0DD97','#97C459','#639922','#3B6D11','#27500A','#173404'],
+  amber:['#FAEEDA','#FAC775','#EF9F27','#BA7517','#854F0B','#633806','#412402'],
+  red:['#FCEBEB','#F7C1C1','#F09595','#E24B4A','#A32D2D','#791F1F','#501313']
+};
+const HUE_NAMES = Object.keys(RAMP);
+// keys: bg card text sub accent on chip chipText border
+function mk(bg,card,text,sub,accent,on,chip,chipText,border){ return {bg,card,text,sub,accent,on,chip,chipText,border}; }
+const SCHEMES = {
+  fresh:{name:'Fresh market', light:mk('#E1F5EE','#FFFFFF','#04342C','#0F6E56','#0F6E56','#FFFFFF','#E1F5EE','#085041','#9FE1CB'),
+                               dark: mk('#04342C','#085041','#E1F5EE','#9FE1CB','#5DCAA5','#04342C','#0F6E56','#E1F5EE','#0F6E56')},
+  citrus:{name:'Citrus pop', light:mk('#FAECE7','#FFFFFF','#4A1B0C','#993C1D','#D85A30','#FFFFFF','#FAEEDA','#633806','#F5C4B3'),
+                              dark: mk('#4A1B0C','#712B13','#FAECE7','#F5C4B3','#F0997B','#4A1B0C','#993C1D','#FAEEDA','#993C1D')},
+  midnight:{name:'Midnight', light:mk('#EEEDFE','#FFFFFF','#26215C','#534AB7','#D4537E','#FFFFFF','#EEEDFE','#3C3489','#CECBF6'),
+                              dark: mk('#26215C','#3C3489','#EEEDFE','#CECBF6','#ED93B1','#26215C','#534AB7','#EEEDFE','#534AB7')},
+  ocean:{name:'Ocean', light:mk('#E6F1FB','#FFFFFF','#042C53','#185FA5','#185FA5','#FFFFFF','#E6F1FB','#0C447C','#B5D4F4'),
+                        dark: mk('#042C53','#0C447C','#E6F1FB','#B5D4F4','#85B7EB','#042C53','#185FA5','#E6F1FB','#185FA5')},
+  berry:{name:'Berry', light:mk('#FBEAF0','#FFFFFF','#4B1528','#993556','#993556','#FFFFFF','#EEEDFE','#3C3489','#F4C0D1'),
+                        dark: mk('#4B1528','#72243E','#FBEAF0','#F4C0D1','#ED93B1','#4B1528','#993556','#FBEAF0','#993556')},
+  lemonlime:{name:'Lemon-lime', light:mk('#EAF3DE','#FFFFFF','#173404','#3B6D11','#3B6D11','#FFFFFF','#FAEEDA','#633806','#C0DD97'),
+                                 dark: mk('#173404','#27500A','#EAF3DE','#C0DD97','#97C459','#173404','#3B6D11','#EAF3DE','#3B6D11')},
+  slate:{name:'Slate and coral', light:mk('#F1EFE8','#FFFFFF','#2C2C2A','#5F5E5A','#D85A30','#FFFFFF','#FAECE7','#712B13','#D3D1C7'),
+                                  dark: mk('#2C2C2A','#444441','#F1EFE8','#D3D1C7','#F0997B','#2C2C2A','#5F5E5A','#F1EFE8','#5F5E5A')},
+  cherry:{name:'Cherry', light:mk('#FCEBEB','#FFFFFF','#501313','#A32D2D','#A32D2D','#FFFFFF','#F1EFE8','#444441','#F7C1C1'),
+                          dark: mk('#501313','#791F1F','#FCEBEB','#F7C1C1','#F09595','#501313','#A32D2D','#FCEBEB','#A32D2D')},
+  charcoal:{name:'Charcoal and lime', light:mk('#F1EFE8','#FFFFFF','#2C2C2A','#5F5E5A','#3B6D11','#FFFFFF','#EAF3DE','#27500A','#D3D1C7'),
+                                       dark: mk('#2C2C2A','#444441','#F1EFE8','#B4B2A9','#97C459','#173404','#5F5E5A','#C0DD97','#5F5E5A')}
+};
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+function isDark(){ return darkMQ.matches; }
+function applyTheme(){
+  const s = SCHEMES[setting('scheme','fresh')] || SCHEMES.fresh;
+  const t = isDark() ? s.dark : s.light;
+  const r = document.documentElement.style;
+  r.setProperty('--bg', t.bg); r.setProperty('--card', t.card); r.setProperty('--text', t.text); r.setProperty('--sub', t.sub);
+  r.setProperty('--accent', t.accent); r.setProperty('--on-accent', t.on); r.setProperty('--chip', t.chip);
+  r.setProperty('--chip-text', t.chipText); r.setProperty('--border', t.border);
+  document.querySelector('meta[name=theme-color]').setAttribute('content', t.bg);
+}
+function hueColors(h){ const r = RAMP[h] || RAMP.gray; return isDark() ? {bg:r[5], fg:r[1]} : {bg:r[1], fg:r[6]}; }
+
+/* ---------- starter data ---------- */
+const COLLS = ['lists','items','usuals','cats','stores','prices','settings','known'];
+const SEED_CATS = [
+  ['produce','Produce','green'],['dairy','Dairy','blue'],['meat','Meat','red'],['seafood','Seafood','teal'],
+  ['bakery','Bakery','amber'],['deli','Deli','coral'],['pantry','Pantry','purple'],['frozen','Frozen','blue'],
+  ['snacks','Snacks','pink'],['beverages','Beverages','teal'],['household','Household','gray'],['personal','Personal care','purple']
+];
+// url: the store's search page with TESTITEM where the search words go. No TESTITEM = opens that page and copies the words.
+// sort: added to the link for "Lowest price". check: link not yet confirmed to work.
+const SEED_STORES = [
+  {id:'target', name:'Target', url:'https://www.target.com/s?searchTerm=TESTITEM', sort:'&sortBy=PriceLow', brand:'Good & Gather'},
+  {id:'uncleg', name:"Uncle Giuseppe's", url:'https://uncleg.com/', brand:"Uncle Giuseppe's", check:true},
+  {id:'wholefoods', name:'Whole Foods', url:'https://www.wholefoodsmarket.com/search?text=TESTITEM', brand:'365 by Whole Foods Market', check:true},
+  {id:'stopshop', name:'Stop & Shop', url:'https://stopandshop.com/product-search/TESTITEM', brand:'Stop & Shop', organic:"Nature's Promise", check:true},
+  {id:'kingkullen', name:'King Kullen', url:'https://www.kingkullen.com/', brand:'', check:true},
+  {id:'shoprite', name:'ShopRite', url:'https://www.shoprite.com/sm/pickup/results?q=TESTITEM', sort:'&sort=price', brand:'Bowl & Basket', check:true},
+  {id:'costco', name:'Costco', url:'https://www.costco.com/CatalogSearch?keyword=TESTITEM', brand:'Kirkland Signature', note:'Online prices can differ from the warehouse.'},
+  {id:'stews', name:"Stew Leonard's", url:'https://shop.stewleonards.com/store/stew-leonards/s?k=TESTITEM', brand:"Stew Leonard's", note:'Online shop may show online prices, not shelf prices.', check:true},
+  {id:'lidl', name:'Lidl', url:'https://www.lidl.com/search/products/TESTITEM', brand:'', check:true},
+  {id:'traderjoes', name:"Trader Joe's", url:'https://www.traderjoes.com/home/search?q=TESTITEM&section=products', brand:"Trader Joe's", note:'No online ordering; product search only.', check:true},
+  {id:'ctown', name:'C-Town', url:'https://www.ctownsupermarkets.com/', brand:'', check:true},
+  {id:'walmart', name:'Walmart', url:'https://www.walmart.com/search?q=TESTITEM', sort:'&sort=price_low', brand:'Great Value'},
+  {id:'luckyfarms', name:'Lucky Farms', url:'', brand:'', check:true}
+];
+const STARTER = {
+  produce:'apples,bananas,oranges,lemons,limes,grapes,strawberries,blueberries,raspberries,avocados,tomatoes,cherry tomatoes,potatoes,sweet potatoes,onions,red onions,garlic,carrots,celery,broccoli,cauliflower,spinach,lettuce,romaine,mixed greens,cucumbers,bell peppers,zucchini,mushrooms,green beans,corn,scallions,cilantro,parsley,basil,ginger,pears,peaches,watermelon,cantaloupe,pineapple,mango,kale,asparagus,brussels sprouts',
+  dairy:'milk,whole milk,skim milk,almond milk,oat milk,eggs,butter,cream cheese,sour cream,heavy cream,half and half,yogurt,greek yogurt,shredded mozzarella,cheddar cheese,parmesan,ricotta,fresh mozzarella,string cheese,cottage cheese,sliced cheese',
+  meat:'chicken breast,chicken thighs,chicken cutlets,whole chicken,ground beef,ground turkey,steak,pork chops,bacon,sausage,italian sausage,hot dogs,meatballs,ribs',
+  seafood:'salmon,shrimp,tilapia,cod,tuna steak,scallops,crab cakes',
+  bakery:'bread,sourdough,bagels,rolls,english muffins,tortillas,pita,hamburger buns,hot dog buns,croissants,muffins,cake',
+  deli:'sliced turkey,sliced ham,roast beef,salami,prosciutto,provolone,american cheese,rotisserie chicken,pepperoni',
+  pantry:'pasta,spaghetti,penne,rice,brown rice,pasta sauce,marinara,olive oil,vegetable oil,flour,sugar,brown sugar,salt,black pepper,cereal,oatmeal,peanut butter,jelly,honey,maple syrup,canned tomatoes,tomato paste,chicken broth,beans,black beans,chickpeas,canned tuna,soup,ketchup,mustard,mayonnaise,hot sauce,soy sauce,vinegar,breadcrumbs,baking soda,baking powder,vanilla extract,coffee,tea,salad dressing',
+  frozen:'frozen pizza,frozen vegetables,frozen peas,frozen berries,ice cream,frozen waffles,chicken nuggets,french fries,frozen dumplings',
+  snacks:'chips,tortilla chips,pretzels,popcorn,crackers,cookies,granola bars,nuts,almonds,trail mix,chocolate,gummies,salsa,hummus',
+  beverages:'water,sparkling water,seltzer,soda,orange juice,apple juice,lemonade,iced tea,sports drinks,beer,wine,coffee pods',
+  household:'paper towels,toilet paper,tissues,dish soap,dishwasher pods,laundry detergent,trash bags,aluminum foil,plastic wrap,zip bags,sponges,napkins,cleaning spray,light bulbs,batteries',
+  personal:'shampoo,conditioner,body wash,soap,toothpaste,toothbrush,deodorant,floss,razors,lotion,sunscreen,cotton swabs'
+};
+const STARTER_LIST = [];
+for (const c in STARTER) for (const n of STARTER[c].split(',')) STARTER_LIST.push({name:n, catId:'cat_' + c});
+
+function seed(){
+  const d = {version:1}; COLLS.forEach(c => d[c] = {});
+  // seeded records use fixed ids and u=1 so two phones starting fresh never duplicate them
+  SEED_CATS.forEach(([k,n,h],i) => d.cats['cat_'+k] = {id:'cat_'+k, name:n, hue:h, order:i, u:1});
+  SEED_STORES.forEach((s,i) => d.stores['st_'+s.id] = {id:'st_'+s.id, name:s.name, label:'', url:s.url||'', sort:s.sort||'', brand:s.brand||'', organic:s.organic||'', note:s.note||'', check:!!s.check, hidden:false, order:i, u:1});
+  d.lists.list_weekly = {id:'list_weekly', name:'Weekly', order:0, layout:'cat', u:1};
+  return d;
+}
+
+/* ---------- data store ---------- */
+let D = LS.get('gl_data', null);
+if (!D || D.version !== 1) D = seed();
+COLLS.forEach(c => { if (!D[c]) D[c] = {}; });
+
+function live(c){ return Object.values(D[c]).filter(r => !r.del); }
+function get(c, id){ const r = D[c][id]; return r && !r.del ? r : null; }
+function put(c, rec, quiet){ rec.u = Math.max(now(), (D[c][rec.id] && D[c][rec.id].u || 0) + 1); D[c][rec.id] = rec; if(!quiet) save(); return rec; }
+function del(c, id, quiet){ const prev = D[c][id]; if (!prev || prev.del) return; D[c][id] = {id, del:true, u:Math.max(now(), (prev.u||0)+1)}; if(!quiet) save(); }
+function save(){ LS.set('gl_data', D); scheduleSync(); }
+function setting(k, d){ const r = get('settings', k); return r ? r.v : d; }
+function setSetting(k, v){ put('settings', {id:k, v}); }
+const byOrder = (a,b) => (a.order ?? 0) - (b.order ?? 0) || String(a.name).localeCompare(String(b.name));
+function cats(){ return live('cats').sort(byOrder); }
+function stores(){ return live('stores').sort(byOrder); }
+function lists(){ return live('lists').sort(byOrder); }
+
+/* ---------- GitHub sync ---------- */
+let token = LS.get('gl_token', '');
+let syncing = false, syncAgain = false, syncTimer = null;
+let syncState = {s: token ? 'idle' : 'off', msg:'', at: LS.get('gl_synced_at', 0)};
+
+function b64enc(str){ const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(bin); }
+function b64dec(b64){ const bin = atob(b64.replace(/\s/g,'')); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new TextDecoder().decode(bytes); }
+
+async function gh(method, body){
+  const url = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + GH_FILE;
+  const headers = {'Authorization':'Bearer ' + token, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'};
+  if (body) headers['Content-Type'] = 'application/json';
+  return fetch(url, {method, headers, cache:'no-store', body: body ? JSON.stringify(body) : undefined});
+}
+function ghError(status, where){
+  if (status === 401) return 'GitHub didn’t accept the token. Paste it again in Settings → Sync.';
+  if (status === 403) return 'The token can’t ' + where + ' grocery-data. Check it has Contents: Read and write for that repo.';
+  if (status === 404) return 'Can’t find ' + GH_OWNER + '/' + GH_REPO + '. Check the repo exists and the token includes it.';
+  return 'GitHub error ' + status + ' while trying to ' + where + ' your lists.';
+}
+function mergeData(local, remote){
+  const out = {version:1}; let localNewer = false, remoteNewer = false; const cutoff = now() - 90*864e5;
+  for (const c of COLLS){
+    out[c] = {}; const a = local[c] || {}, b = remote[c] || {};
+    const ids = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const id of ids){
+      const ra = a[id], rb = b[id]; let pick;
+      if (!rb){ pick = ra; localNewer = true; }
+      else if (!ra){ pick = rb; remoteNewer = true; }
+      else if ((ra.u||0) > (rb.u||0)){ pick = ra; localNewer = true; }
+      else { pick = rb; if ((rb.u||0) > (ra.u||0)) remoteNewer = true; }
+      if (pick.del && pick.u < cutoff) continue;
+      out[c][id] = pick;
+    }
+  }
+  return {data:out, localNewer, remoteNewer};
+}
+function scheduleSync(delay){ if (!token) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, delay == null ? 1200 : delay); }
+async function sync(){
+  if (!token){ setSync('off'); return; }
+  if (!navigator.onLine){ setSync('err', 'You’re offline. Changes are saved on this phone and will sync when you’re back online.'); return; }
+  if (syncing){ syncAgain = true; return; }
+  syncing = true; setSync('busy');
+  try {
+    for (let attempt = 0; attempt < 4; attempt++){
+      const r = await gh('GET');
+      let remote = null, sha;
+      if (r.status === 404){ remote = null; }
+      else if (!r.ok) throw new Error(ghError(r.status, 'read'));
+      else { const j = await r.json(); sha = j.sha; remote = JSON.parse(b64dec(j.content || '') || 'null'); }
+      let needPush = !remote;
+      if (remote){
+        const m = mergeData(D, remote);
+        D = m.data; LS.set('gl_data', D);
+        needPush = m.localNewer;
+        if (m.remoteNewer) render();
+      }
+      if (!needPush) break;
+      const body = {message:'Grocery List update', content:b64enc(JSON.stringify(D))};
+      if (sha) body.sha = sha;
+      const p = await gh('PUT', body);
+      if (p.status === 409 || p.status === 422) continue;   // the other phone saved first: merge again
+      if (!p.ok) throw new Error(ghError(p.status, 'save'));
+      break;
+    }
+    syncState.at = now(); LS.set('gl_synced_at', syncState.at);
+    setSync('ok');
+  } catch (e){
+    const msg = (e && e.message) || String(e);
+    setSync('err', /Failed to fetch|NetworkError|Load failed/i.test(msg) ? 'Couldn’t reach GitHub. Check your connection; changes are saved on this phone.' : msg);
+  } finally {
+    syncing = false;
+    if (syncAgain){ syncAgain = false; scheduleSync(300); }
+  }
+}
+function setSync(s, msg){ syncState.s = s; syncState.msg = msg || ''; const el = $('#syncpill'); if (el) el.outerHTML = syncPill(); const st = $('#syncstatus'); if (st) st.innerHTML = syncStatusText(); }
+function syncPill(){
+  const s = syncState.s;
+  if (s === 'off') return '<button id="syncpill" class="pill off" data-act="goSync">Not synced</button>';
+  if (s === 'err') return '<button id="syncpill" class="pill err" data-act="syncInfo">Sync issue</button>';
+  if (s === 'busy' || s === 'idle') return '<button id="syncpill" class="pill off" data-act="syncNow">Syncing…</button>';
+  return '<button id="syncpill" class="pill" data-act="syncNow">Synced</button>';
+}
+function syncStatusText(){
+  if (!token) return 'Not connected. Paste your token to share lists between phones.';
+  if (syncState.s === 'err') return '<span style="color:var(--danger)">' + esc(syncState.msg) + '</span>';
+  if (syncState.s === 'busy') return 'Syncing…';
+  return syncState.at ? 'Last synced ' + new Date(syncState.at).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : 'Connected';
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+window.addEventListener('online', () => sync());
+setInterval(() => { if (document.visibilityState === 'visible' && !syncing) sync(); }, 30000);
+
+/* ---------- UI state ---------- */
+const ui = { tab:'list', open:new Set(), select:false, selected:new Set(), checking:new Set() };
+let curListId = LS.get('gl_list', 'list_weekly');
+function curList(){ let l = get('lists', curListId); if (!l){ l = lists()[0]; if (!l){ l = put('lists', {id:uid('list'), name:'Weekly', order:0, layout:setting('defaultLayout','cat')}); } curListId = l.id; LS.set('gl_list', curListId); } return l; }
+function tripStores(){ const sel = LS.get('gl_trip', []); const vis = stores().filter(s => !s.hidden); const f = vis.filter(s => sel.includes(s.id)); return f.length ? f : vis; }
+
+/* ---------- item helpers ---------- */
+const BRAND_MODES = [['any','Any brand'],['brand','Specific brand'],['store','Store brand'],['lowest','Lowest price']];
+function brandLabel(it){ if (it.brandMode === 'brand') return it.brand || ''; if (it.brandMode === 'store') return 'Store brand'; if (it.brandMode === 'lowest') return 'Lowest price'; return ''; }
+function subLine(it){ return [it.details, brandLabel(it), it.qty].filter(Boolean).join(' · '); }
+function productKey(it){ return [it.name, it.details, it.brandMode || 'any', it.brandMode === 'brand' ? it.brand : ''].map(norm).join('|'); }
+function searchWords(it, st){
+  let b = '';
+  const ov = it.overrides && it.overrides[st.id];
+  if (ov) b = ov;
+  else if (it.brandMode === 'brand') b = it.brand || '';
+  else if (it.brandMode === 'store') b = (st.organic && /organic/i.test(it.details || '')) ? st.organic : (st.brand || '');
+  return [b, it.name, it.details].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+function storeLink(it, st){
+  const words = searchWords(it, st);
+  if (!st.url) return {href:'', words, plain:true};
+  if (st.url.includes('TESTITEM')){
+    let href = st.url.split('TESTITEM').join(encodeURIComponent(words));
+    if (it.brandMode === 'lowest' && st.sort && !(it.overrides && it.overrides[st.id])) href += st.sort;
+    return {href, words, plain:false};
+  }
+  return {href:st.url, words, plain:true};
+}
+function priceRec(it, stId){ return get('prices', productKey(it) + '__' + stId); }
+function qtyMult(q){ const m = String(q || '').trim().match(/^x?\s*(\d+)\s*x?$/i); return m ? Math.max(1, +m[1]) : 1; }
+function catOf(it){ return get('cats', it.catId); }
+function isUsual(it){ const k = productKey(it); return live('usuals').some(u => productKey(u) === k); }
+function remember(it){
+  const k = norm(it.name); if (!k) return;
+  put('known', {id:'k_' + k, name:it.name.trim(), details:it.details||'', brandMode:it.brandMode||'any', brand:it.brand||'', overrides:it.overrides||{}, qty:it.qty||'', catId:it.catId||''}, true);
+}
+function guessCat(name){
+  const k = norm(name);
+  const kn = get('known', 'k_' + k); if (kn && kn.catId && get('cats', kn.catId)) return kn.catId;
+  const us = live('usuals').find(u => norm(u.name) === k); if (us && us.catId) return us.catId;
+  const st = STARTER_LIST.find(s => s.name === k); if (st && get('cats', st.catId)) return st.catId;
+  const st2 = STARTER_LIST.find(s => k.endsWith(' ' + s.name) || k.startsWith(s.name + ' '));
+  if (st2 && get('cats', st2.catId)) return st2.catId;
+  return '';
+}
+function suggestions(q, limit){
+  q = norm(q); if (!q) return [];
+  const seen = new Set(), out = [];
+  const add = (o, src) => { const k = norm(o.name) + '|' + norm(o.details); if (seen.has(k)) return; seen.add(k); out.push({...o, src}); };
+  const pools = [[live('usuals'),'usual'], [live('known'),'known'], [STARTER_LIST,'starter']];
+  for (const pass of [n => n.startsWith(q), n => n.includes(q) && !n.startsWith(q)])
+    for (const [pool, src] of pools) for (const o of pool) if (pass(norm(o.name))) add(o, src);
+  return out.slice(0, limit || 6);
+}
+function itemsIn(listId){ return live('items').filter(i => i.listId === listId); }
+function newItemFrom(src, listId){
+  return {id:uid('it'), listId, name:(src.name||'').trim(), details:src.details||'', brandMode:src.brandMode||'any', brand:src.brand||'',
+          overrides:{...(src.overrides||{})}, qty:src.qty||'', catId:(src.catId && get('cats', src.catId)) ? src.catId : guessCat(src.name), checked:false, addedAt:now()};
+}
+
+/* ---------- toasts / undo ---------- */
+let toastTimer = null;
+function toast(msg, undoFn){
+  let t = $('#toast'); if (t) t.remove();
+  t = document.createElement('div'); t.id = 'toast'; t.className = 'toast';
+  t.innerHTML = '<span>' + esc(msg) + '</span>' + (undoFn ? '<button>Undo</button>' : '');
+  if (undoFn) t.querySelector('button').onclick = () => { undoFn(); t.remove(); };
+  document.body.appendChild(t); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.remove(), undoFn ? 5000 : 2400);
+}
+function snapshot(c, ids){ return ids.map(id => JSON.parse(JSON.stringify(D[c][id]))); }
+function restore(c, snaps){ snaps.forEach(s => { delete s.del; put(c, s, true); }); save(); render(); }
+
+/* ---------- sheets (modals) ---------- */
+function openSheet(html, onMount){
+  closeSheet();
+  const o = document.createElement('div'); o.className = 'overlay'; o.id = 'overlay';
+  o.innerHTML = '<div class="sheet" role="dialog"><div class="grab"></div>' + html + '</div>';
+  o.addEventListener('click', e => { if (e.target === o) closeSheet(); });
+  document.body.appendChild(o); if (onMount) onMount(o.querySelector('.sheet'));
+  return o.querySelector('.sheet');
+}
+function closeSheet(){ const o = $('#overlay'); if (o) o.remove(); }
+function ask(opts){
+  return new Promise(res => {
+    const s = openSheet('<h2>' + esc(opts.title) + '</h2>' + (opts.message ? '<p>' + esc(opts.message) + '</p>' : '') +
+      (opts.input ? '<div class="fld"><input id="askin" value="' + esc(opts.input.value || '') + '" placeholder="' + esc(opts.input.placeholder || '') + '"' + (opts.input.type ? ' inputmode="' + opts.input.type + '"' : '') + '></div>' : '') +
+      '<div class="btns"><button class="btn" id="askno">Cancel</button><button class="btn ' + (opts.danger ? 'danger' : 'primary') + '" id="askok">' + esc(opts.ok || 'OK') + '</button></div>');
+    const inp = s.querySelector('#askin');
+    if (inp){ setTimeout(() => inp.focus(), 50); inp.addEventListener('keydown', e => { if (e.key === 'Enter') s.querySelector('#askok').click(); }); }
+    s.querySelector('#askno').onclick = () => { closeSheet(); res(false); };
+    s.querySelector('#askok').onclick = () => { const v = inp ? inp.value : true; closeSheet(); res(v); };
+    $('#overlay').addEventListener('click', e => { if (e.target.id === 'overlay') res(false); });
+  });
+}
+
+/* ---------- icons ---------- */
+const IC = {
+  check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--on-accent)"><path d="M5 12l5 5L20 7"/></svg>',
+  chev:'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  down:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+  dots:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  plus:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  list:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.2 10.5h11.3L21 7H6.2"/><path d="M10 9.5l1 1 2-2.2M14.5 10h3"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>',
+  star:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  starFill:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  starLine:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  gear:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  ext:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>',
+  grip:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
+  edit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  trash:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>'
+};
+
+/* ---------- render: shell ---------- */
+function render(){
+  applyTheme();
+  const app = $('#app');
+  const y = window.scrollY;
+  let html = '<div class="wrap">';
+  if (ui.tab === 'list') html += renderList();
+  else if (ui.tab === 'usuals') html += renderUsuals();
+  else html += renderSettings();
+  html += '</div>';
+  html += '<nav class="tabs">' +
+    tabBtn('list', IC.list, 'List') + tabBtn('usuals', IC.star, 'Usuals') + tabBtn('settings', IC.gear, 'Settings') + '</nav>';
+  if (ui.tab === 'list' && ui.select) html += '<div class="selbar"><span class="cnt">' + ui.selected.size + ' selected</span>' +
+    '<button data-act="selDelete">Delete</button><button data-act="selMove">Move</button><button data-act="selUsual">★ Usual</button><button data-act="selDone">Done</button></div>';
+  const focusId = document.activeElement && document.activeElement.id;
+  const focusVal = focusId ? document.activeElement.value : null;
+  app.innerHTML = html;
+  if (focusId === 'addin'){ const f = $('#addin'); if (f){ f.value = focusVal; f.focus(); } }
+  if (ui.tab === 'settings') mountSortables();
+  window.scrollTo(0, y);
+}
+function tabBtn(t, ic, label){ return '<button class="tab' + (ui.tab === t ? ' on' : '') + '" data-act="tab" data-v="' + t + '">' + ic + label + '</button>'; }
+
+/* ---------- render: list ---------- */
+function renderList(){
+  const L = curList();
+  const all = itemsIn(L.id);
+  const open = all.filter(i => !i.checked || ui.checking.has(i.id));
+  const done = all.filter(i => i.checked && !ui.checking.has(i.id)).sort((a,b) => (b.checkedAt||0) - (a.checkedAt||0));
+  let h = '<div class="top"><button class="list-title" data-act="lists"><span>' + esc(L.name) + '</span>' + IC.down + '</button>' + syncPill() +
+          '<button class="icon-btn" data-act="listMenu" aria-label="List options">' + IC.dots + '</button></div>';
+  if (!token && !LS.get('gl_hide_banner', false)) h += '<div class="banner"><span style="flex:1"><b>Not syncing yet.</b> Add your GitHub token in Settings so both phones share lists.</span><button class="mini solid" data-act="goSync">Set up</button></div>';
+  h += '<div class="addbar"><input id="addin" placeholder="Add an item" autocomplete="off" autocapitalize="none" enterkeyhint="done"><button class="plus" data-act="newItem" aria-label="Add with details">' + IC.plus + '</button><div id="addsugg"></div></div>';
+  const vis = stores().filter(s => !s.hidden);
+  const sel = LS.get('gl_trip', []);
+  h += '<div class="chips"><span class="chips-label">Stores</span><button class="chip' + (!sel.some(id => vis.some(s => s.id === id)) ? ' on' : '') + '" data-act="tripAll">All</button>' +
+       vis.map(s => '<button class="chip' + (sel.includes(s.id) ? ' on' : '') + '" data-act="trip" data-id="' + s.id + '">' + esc(s.name) + '</button>').join('') + '</div>';
+  if (setting('paste', false)) h += renderTotals(all);
+  if (!all.length){
+    h += '<div class="empty"><b>Your list is empty</b>Type above to add an item, or pick from your usuals.<br><br><button class="btn primary" style="display:inline-block;flex:none;padding:10px 18px" data-act="tab" data-v="usuals">Open usuals</button></div>';
+    return h;
+  }
+  if (open.length){
+    if ((L.layout || 'cat') === 'cat'){
+      const groups = {};
+      open.forEach(i => { const k = catOf(i) ? i.catId : ''; (groups[k] = groups[k] || []).push(i); });
+      const order = cats().map(c => c.id).filter(id => groups[id]); if (groups['']) order.push('');
+      order.forEach(cid => {
+        const c = get('cats', cid); const col = hueColors(c ? c.hue : 'gray');
+        h += '<div class="cat-head"><span class="cat-pill" style="background:' + col.bg + ';color:' + col.fg + '">' + esc(c ? c.name : 'Other') + '</span></div>';
+        h += '<div class="group">' + groups[cid].sort((a,b) => (a.addedAt||0) - (b.addedAt||0)).map(rowHtml).join('') + '</div>';
+      });
+    } else {
+      h += '<div class="group" style="margin-top:4px">' + open.sort((a,b) => (a.addedAt||0) - (b.addedAt||0)).map(rowHtml).join('') + '</div>';
+    }
+  } else {
+    h += '<div class="empty" style="padding:28px 20px"><b>All done</b>Everything on this list is checked off.</div>';
+  }
+  if (done.length){
+    h += '<div class="got-head"><h3>Got it · ' + done.length + '</h3><button class="linkbtn" data-act="clearChecked">Clear checked</button></div>';
+    h += '<div class="group">' + done.map(rowHtml).join('') + '</div>';
+  }
+  return h;
+}
+function rowHtml(it){
+  const cls = ['row']; if (it.checked && !ui.checking.has(it.id)) cls.push('checked'); if (ui.checking.has(it.id)) cls.push('checking');
+  if (ui.open.has(it.id) && !ui.select) cls.push('open'); if (ui.select && ui.selected.has(it.id)) cls.push('sel');
+  const sub = subLine(it);
+  let hint = '';
+  if (setting('paste', false)){
+    const best = tripStores().map(s => ({s, p:priceRec(it, s.id)})).filter(x => x.p).sort((a,b) => a.p.price - b.p.price)[0];
+    if (best) hint = '<span class="hint">' + money(best.p.price) + '</span>';
+  }
+  const lead = ui.select ? '<span class="selbox">' + (ui.selected.has(it.id) ? IC.check : '') + '</span>' : '<button class="circle" data-act="check" aria-label="Check off">' + IC.check + '</button>';
+  return '<div class="' + cls.join(' ') + '" data-id="' + it.id + '"><div class="swipe-bg">Delete</div>' +
+    '<div class="row-main" data-act="row">' + lead + '<div class="txt"><div class="nm">' + esc(it.name) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' + hint + (ui.select ? '' : IC.chev) + '</div>' +
+    ((ui.open.has(it.id) && !ui.select) ? '<div class="exp">' + expHtml(it) + '</div>' : '') + '</div>';
+}
+function expHtml(it){
+  const sts = tripStores(); let h = '';
+  if (!sts.length) h += '<div class="notelink">No stores are turned on. Add or show stores in Settings.</div>';
+  else if (setting('paste', false)){
+    h += '<div>' + sts.map(s => {
+      const lk = storeLink(it, s); const p = priceRec(it, s.id);
+      return '<div class="prow"><div class="sn">' + esc(s.name) + (s.label ? '<small>' + esc(s.label) + '</small>' : '') + '</div>' +
+        '<div class="pv">' + (p ? '<button data-act="editPrice" data-store="' + s.id + '"><b>' + money(p.price) + '</b><small>' + fmtDate(p.date) + '</small></button>' : '<small>—</small>') + '</div>' +
+        storeBtn(lk, s, 'mini', 'Search') + '<button class="mini solid" data-act="pastePrice" data-store="' + s.id + '">Paste</button></div>';
+    }).join('') + '</div>';
+  } else {
+    h += '<div class="store-pills">' + sts.map(s => storeBtn(storeLink(it, s), s, 'spill', esc(s.name) + (it.brandMode === 'lowest' && s.sort ? ' ↓$' : ''))).join('') + '</div>';
+  }
+  const us = isUsual(it);
+  h += '<div class="acts"><button class="act" data-act="edit">' + IC.edit + 'Edit</button><button class="act" data-act="usual">' + (us ? IC.starFill + 'Usual' : IC.starLine + 'Make usual') + '</button><button class="act danger" data-act="delete">' + IC.trash + 'Delete</button></div>';
+  return h;
+}
+function storeBtn(lk, s, cls, label){
+  if (!lk.href) return '<button class="' + cls + '" data-act="noLink" data-store="' + s.id + '">' + label + '</button>';
+  return '<a class="' + cls + '" href="' + esc(lk.href) + '" target="_blank" rel="noopener" data-act="storeLink" data-words="' + esc(lk.words) + '" data-plain="' + (lk.plain ? 1 : 0) + '" data-store="' + s.id + '">' + label + (cls === 'spill' ? IC.ext : '') + '</a>';
+}
+function renderTotals(all){
+  const sts = tripStores(); if (!all.length) return '';
+  const rows = sts.map(s => { let sum = 0, have = 0; all.forEach(it => { const p = priceRec(it, s.id); if (p){ sum += p.price * qtyMult(it.qty); have++; } }); return {s, sum, have, miss: all.length - have}; }).filter(r => r.have);
+  if (!rows.length) return '<div class="totals"><h4>Store totals</h4><div class="trow tm" style="display:block">Open an item and tap Paste next to a store to start comparing.</div></div>';
+  rows.sort((a,b) => a.miss - b.miss || a.sum - b.sum);
+  const complete = rows.filter(r => !r.miss);
+  const best = complete.length ? complete.reduce((a,b) => a.sum <= b.sum ? a : b) : null;
+  return '<div class="totals"><h4>Store totals</h4>' + rows.map(r => '<div class="trow"><span><b>' + esc(r.s.name) + '</b>' + (r === best ? '<span class="badge">Cheapest</span>' : '') + '</span><span style="text-align:right">' + money(r.sum) +
+    '<div class="tm">' + (r.miss ? r.miss + ' item' + (r.miss > 1 ? 's' : '') + ' without a price' : 'all ' + all.length + ' items') + '</div></span></div>').join('') +
+    '<div class="tm" style="margin-top:4px">Quantities like “3” or “x3” are multiplied; weights aren’t.</div></div>';
+}
+
+/* ---------- render: usuals ---------- */
+let usualQuery = '';
+function renderUsuals(){
+  const L = curList();
+  const onList = new Set(itemsIn(L.id).filter(i => !i.checked).map(productKey));
+  const q = norm(usualQuery);
+  const us = live('usuals').filter(u => !q || norm(u.name).includes(q) || norm(u.details).includes(q));
+  let h = '<div class="top"><div class="list-title" style="cursor:default"><span>Usuals</span></div>' + syncPill() + '</div>';
+  h += '<div class="addbar"><input id="usualq" placeholder="Search usuals" value="' + esc(usualQuery) + '" autocomplete="off"><button class="plus" data-act="newUsual" aria-label="New usual">' + IC.plus + '</button></div>';
+  h += '<p style="font-size:13px;color:var(--sub);margin:0 0 8px">Tap + to add to <b>' + esc(L.name) + '</b>. Tap an item to edit it.</p>';
+  if (!us.length) return h + '<div class="empty"><b>' + (q ? 'No matches' : 'No usuals yet') + '</b>' + (q ? '' : 'Open an item on your list and tap “Make usual”, or tap + above.') + '</div>';
+  const groups = {}; us.forEach(u => { const k = get('cats', u.catId) ? u.catId : ''; (groups[k] = groups[k] || []).push(u); });
+  const order = cats().map(c => c.id).filter(id => groups[id]); if (groups['']) order.push('');
+  order.forEach(cid => {
+    const c = get('cats', cid); const col = hueColors(c ? c.hue : 'gray');
+    h += '<div class="cat-head"><span class="cat-pill" style="background:' + col.bg + ';color:' + col.fg + '">' + esc(c ? c.name : 'Other') + '</span></div><div class="group">';
+    h += groups[cid].sort((a,b) => a.name.localeCompare(b.name)).map(u => {
+      const on = onList.has(productKey(u)); const sub = subLine(u);
+      return '<div class="row" data-uid="' + u.id + '"><div class="row-main" data-act="editUsual"><div class="txt"><div class="nm">' + esc(u.name) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>' +
+        '<button class="mini' + (on ? '' : ' solid') + '" data-act="addUsual" style="min-width:64px">' + (on ? '✓ On list' : '+ Add') + '</button></div></div>';
+    }).join('') + '</div>';
+  });
+  return h;
+}
+
+/* ---------- render: settings ---------- */
+function renderSettings(){
+  let h = '<div class="top"><div class="list-title" style="cursor:default"><span>Settings</span></div>' + syncPill() + '</div>';
+  h += '<div class="sec" id="sync-sec">Sync</div><div class="card"><div class="pad">' +
+    '<div class="fld"><label>GitHub token</label><input id="tokin" type="password" placeholder="Paste your token" value="' + esc(token) + '" autocomplete="off" autocapitalize="none" spellcheck="false"></div>' +
+    '<div style="display:flex;gap:8px"><button class="btn primary" data-act="saveToken">Save and sync</button><button class="btn" data-act="showToken" style="flex:0 0 auto;padding:13px 16px">Show</button></div>' +
+    '<div class="help" id="syncstatus" style="margin-top:10px">' + syncStatusText() + '</div>' +
+    '<div class="help">Lists are saved to the private repo ' + esc(GH_OWNER + '/' + GH_REPO) + '. The token stays on this phone only.</div></div></div>';
+
+  const sc = setting('scheme', 'fresh');
+  h += '<div class="sec">Color scheme</div><div class="card"><div class="schemes">' + Object.entries(SCHEMES).map(([k, s]) => {
+    const t = isDark() ? s.dark : s.light;
+    return '<button class="sch' + (k === sc ? ' on' : '') + '" data-act="scheme" data-v="' + k + '" style="background:' + t.bg + ';color:' + t.text + '"><div class="sw"><i style="background:' + t.accent + '"></i><i style="background:' + t.card + '"></i><i style="background:' + t.chip + '"></i></div>' + esc(s.name) + '</button>';
+  }).join('') + '</div><div class="help" style="padding:0 14px 12px">Each scheme has a light and dark version that follows your phone’s setting.</div></div>';
+
+  h += '<div class="sec">Lists</div><div class="card">' +
+    '<div class="line"><div class="grow">Group new lists by category<small>Each list can switch from its ⋯ menu</small></div><button class="switch' + (setting('defaultLayout','cat') === 'cat' ? ' on' : '') + '" data-act="toggleDefLayout" aria-label="Group by category"></button></div>' +
+    '<div class="line"><div class="grow">Paste prices and store totals<small>Paste a price per store; shows totals per store</small></div><button class="switch' + (setting('paste', false) ? ' on' : '') + '" data-act="togglePaste" aria-label="Paste and total"></button></div></div>';
+
+  h += '<div class="sec">Stores</div><div class="help" style="margin:-2px 0 8px">Drag ' + '⋮⋮' + ' to reorder. Switch off stores you don’t want on items. Tap a store to edit its link, location or store brand.</div>';
+  h += '<div class="card" id="storeSort" style="position:relative">' + stores().map(s => '<div class="line" data-sid="' + s.id + '"><span class="handle">' + IC.grip + '</span>' +
+    '<div class="grow" data-act="editStore" style="cursor:pointer"><b>' + esc(s.name) + '</b>' + (s.check && s.url ? '<span class="tag">Test link</span>' : '') + (!s.url ? '<span class="tag">Add link</span>' : '') +
+    '<small>' + esc([s.label, s.brand ? 'Store brand: ' + s.brand : ''].filter(Boolean).join(' · ') || 'No location set') + '</small></div>' +
+    '<button class="switch' + (s.hidden ? '' : ' on') + '" data-act="toggleStore" aria-label="Show ' + esc(s.name) + '"></button></div>').join('') + '</div>';
+  h += '<button class="menu-item" style="margin-top:8px" data-act="addStore">' + IC.plus + 'Add a store</button>';
+
+  h += '<div class="sec">Categories</div><div class="help" style="margin:-2px 0 8px">Drag to reorder. Tap the dot to change its color, the name to rename.</div>';
+  h += '<div class="card" id="catSort" style="position:relative">' + cats().map(c => { const col = hueColors(c.hue);
+    return '<div class="line" data-cid="' + c.id + '"><span class="handle">' + IC.grip + '</span><button class="dot" data-act="catColor" style="background:' + col.bg + ';border-color:' + col.fg + '"></button>' +
+      '<div class="grow" data-act="catRename" style="cursor:pointer">' + esc(c.name) + '</div><button class="mini" data-act="catDelete" aria-label="Delete ' + esc(c.name) + '">' + IC.trash + '</button></div>'; }).join('') + '</div>';
+  h += '<button class="menu-item" style="margin-top:8px" data-act="addCat">' + IC.plus + 'Add a category</button>';
+  h += '<div class="ver">Grocery List v' + APP_VERSION + '</div>';
+  return h;
+}
+
+/* ---------- drag to reorder ---------- */
+function makeSortable(container, itemSel, onDone){
+  if (!container) return;
+  container.addEventListener('pointerdown', e => {
+    const hd = e.target.closest('.handle'); if (!hd) return;
+    const el = hd.closest(itemSel); if (!el) return;
+    e.preventDefault();
+    const startPage = e.clientY + window.scrollY, orig = el.offsetTop; let lastY = e.clientY, raf = 0;
+    el.classList.add('dragging'); el.style.transition = 'none';
+    try { hd.setPointerCapture(e.pointerId); } catch(_){}
+    const update = () => {
+      const dy = lastY + window.scrollY - startPage; const center = orig + dy + el.offsetHeight / 2;
+      const nx = el.nextElementSibling; if (nx && nx.matches(itemSel) && center > nx.offsetTop + nx.offsetHeight / 2) container.insertBefore(nx, el);
+      const pv = el.previousElementSibling; if (pv && pv.matches(itemSel) && center < pv.offsetTop + pv.offsetHeight / 2) container.insertBefore(el, pv);
+      el.style.transform = 'translateY(' + (orig + dy - el.offsetTop) + 'px)';
+    };
+    const tick = () => {   // scroll the page when dragging near the top or bottom edge
+      const edge = 90, bottom = window.innerHeight - edge - 70;
+      if (lastY < edge) window.scrollBy(0, -Math.ceil((edge - lastY) / 5));
+      else if (lastY > bottom) window.scrollBy(0, Math.ceil((lastY - bottom) / 5));
+      update(); raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const move = ev => { lastY = ev.clientY; update(); };
+    const up = () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      el.style.transform = ''; el.classList.remove('dragging');
+      onDone([...container.querySelectorAll(itemSel)]);
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+}
+function mountSortables(){
+  makeSortable($('#storeSort'), '.line', els => { els.forEach((el, i) => { const s = get('stores', el.dataset.sid); if (s && s.order !== i){ s.order = i; put('stores', s, true); } }); save(); render(); });
+  makeSortable($('#catSort'), '.line', els => { els.forEach((el, i) => { const c = get('cats', el.dataset.cid); if (c && c.order !== i){ c.order = i; put('cats', c, true); } }); save(); render(); });
+}
+
+/* ---------- item editor (items and usuals) ---------- */
+function openEditor(kind, rec){
+  // kind: 'item' | 'usual'. rec: existing record or null for new.
+  const isNew = !rec;
+  const r = rec ? JSON.parse(JSON.stringify(rec)) : {name:'', details:'', brandMode:'any', brand:'', overrides:{}, qty:'', catId:''};
+  r.overrides = r.overrides || {};
+  const known = live('known').concat(live('usuals'));
+  const uniq = arr => [...new Set(arr.filter(Boolean))].slice(0, 40);
+  const dl = (id, vals) => '<datalist id="' + id + '">' + uniq(vals).map(v => '<option value="' + esc(v) + '">').join('') + '</datalist>';
+  const hasOv = Object.values(r.overrides).some(Boolean);
+  const sortStores = stores().filter(s => s.sort && !s.hidden).map(s => s.name);
+  const s = openSheet(
+    '<h2>' + (isNew ? (kind === 'usual' ? 'New usual' : 'Add item') : (kind === 'usual' ? 'Edit usual' : 'Edit item')) + '</h2>' +
+    '<div class="fld field-wrap"><label>Name</label><input id="e_name" value="' + esc(r.name) + '" placeholder="chicken breast" autocomplete="off" autocapitalize="none"><div id="e_sugg"></div></div>' +
+    '<div class="fld"><label>Details</label><input id="e_details" list="dl_details" value="' + esc(r.details) + '" placeholder="organic, boneless" autocomplete="off" autocapitalize="none">' + dl('dl_details', known.map(k => k.details)) + '</div>' +
+    '<div class="fld"><label>Brand</label><div class="seg" id="e_mode">' + BRAND_MODES.map(([k, l]) => '<button data-m="' + k + '"' + (r.brandMode === k ? ' class="on"' : '') + '>' + l.replace(' brand', '').replace('Specific', 'Brand').replace('Lowest price', 'Lowest') + '</button>').join('') + '</div>' +
+      '<div id="e_brandwrap" style="margin-top:8px' + (r.brandMode === 'brand' ? '' : ';display:none') + '"><input id="e_brand" list="dl_brand" value="' + esc(r.brand) + '" placeholder="Horizon" autocomplete="off">' + dl('dl_brand', known.map(k => k.brand)) + '</div>' +
+      '<div class="help" id="e_modehelp"></div></div>' +
+    '<div class="fld"><button class="linkbtn" id="e_ovbtn" type="button">' + (hasOv ? 'Different brand at specific stores ▾' : 'Different brand at specific stores ▸') + '</button><div id="e_ov" style="margin-top:8px' + (hasOv ? '' : ';display:none') + '">' +
+      stores().map(st => '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="flex:0 0 120px;font-size:14px;font-weight:600">' + esc(st.name) + '</span><input data-ov="' + st.id + '" value="' + esc(r.overrides[st.id] || '') + '" placeholder="same as above" autocomplete="off" style="padding:8px 10px"></div>').join('') + '</div></div>' +
+    '<div style="display:flex;gap:10px"><div class="fld" style="flex:1"><label>Quantity</label><input id="e_qty" list="dl_qty" value="' + esc(r.qty) + '" placeholder="2 lbs, x3" autocomplete="off">' + dl('dl_qty', known.map(k => k.qty)) + '</div>' +
+    '<div class="fld" style="flex:1"><label>Category</label><select id="e_cat"><option value="">Other</option>' + cats().map(c => '<option value="' + c.id + '"' + (r.catId === c.id ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></div></div>' +
+    (kind === 'item' ? '<div class="line" style="display:flex;align-items:center;gap:10px;padding:4px 0"><div style="flex:1;font-weight:600">Save as a usual</div><button class="switch' + ((!isNew && isUsual(rec)) ? ' on' : '') + '" id="e_usual" type="button"></button></div>' : '') +
+    '<div class="btns">' + (!isNew ? '<button class="btn danger" id="e_del" style="flex:0 0 auto;padding:13px 16px">' + IC.trash + '</button>' : '') + '<button class="btn" id="e_cancel">Cancel</button><button class="btn primary" id="e_save">' + (isNew ? 'Add' : 'Save') + '</button></div>');
+  const name = s.querySelector('#e_name'), cat = s.querySelector('#e_cat');
+  let catTouched = !isNew;
+  cat.addEventListener('change', () => catTouched = true);
+  const modeHelp = () => {
+    const m = r.brandMode, el = s.querySelector('#e_modehelp');
+    el.textContent = m === 'store' ? 'Searches each store’s own label (set per store in Settings → Stores).' :
+      m === 'lowest' ? 'Opens results sorted cheapest first' + (sortStores.length ? ' at ' + sortStores.join(', ') : '') + '. Sorted by package price, not price per ounce.' :
+      m === 'brand' ? 'Adds this brand to every store’s search.' : 'Searches every brand the store carries.';
+  };
+  modeHelp();
+  s.querySelector('#e_mode').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; e.preventDefault(); r.brandMode = b.dataset.m;
+    s.querySelectorAll('#e_mode button').forEach(x => x.classList.toggle('on', x === b)); s.querySelector('#e_brandwrap').style.display = r.brandMode === 'brand' ? '' : 'none'; modeHelp(); });
+  s.querySelector('#e_ovbtn').onclick = e => { e.preventDefault(); const o = s.querySelector('#e_ov'); const show = o.style.display === 'none'; o.style.display = show ? '' : 'none'; e.target.textContent = 'Different brand at specific stores ' + (show ? '▾' : '▸'); };
+  const us = s.querySelector('#e_usual'); if (us) us.onclick = e => { e.preventDefault(); us.classList.toggle('on'); };
+  const fill = o => {
+    name.value = o.name; s.querySelector('#e_details').value = o.details || ''; s.querySelector('#e_qty').value = o.qty || '';
+    if (o.brandMode){ r.brandMode = o.brandMode; s.querySelectorAll('#e_mode button').forEach(x => x.classList.toggle('on', x.dataset.m === o.brandMode)); s.querySelector('#e_brandwrap').style.display = o.brandMode === 'brand' ? '' : 'none'; modeHelp(); }
+    s.querySelector('#e_brand').value = o.brand || '';
+    s.querySelectorAll('[data-ov]').forEach(inp => inp.value = (o.overrides && o.overrides[inp.dataset.ov]) || '');
+    if (o.catId && get('cats', o.catId)){ cat.value = o.catId; catTouched = true; }
+  };
+  wireSuggest(name, s.querySelector('#e_sugg'), fill);
+  name.addEventListener('blur', () => { if (!catTouched){ const g = guessCat(name.value); if (g) cat.value = g; } });
+  if (isNew) setTimeout(() => name.focus(), 60);
+  s.querySelector('#e_cancel').onclick = closeSheet;
+  if (!isNew) s.querySelector('#e_del').onclick = () => { closeSheet(); if (kind === 'item') deleteItems([rec.id]); else { const sn = snapshot('usuals', [rec.id]); del('usuals', rec.id); render(); toast('Usual deleted', () => restore('usuals', sn)); } };
+  s.querySelector('#e_save').onclick = () => {
+    const nm = name.value.trim(); if (!nm){ name.focus(); name.style.borderColor = 'var(--danger)'; return; }
+    const ov = {}; s.querySelectorAll('[data-ov]').forEach(inp => { if (inp.value.trim()) ov[inp.dataset.ov] = inp.value.trim(); });
+    let catId = cat.value; if (!catId && !catTouched) catId = guessCat(nm);
+    const fields = {name:nm, details:s.querySelector('#e_details').value.trim(), brandMode:r.brandMode, brand:r.brandMode === 'brand' ? s.querySelector('#e_brand').value.trim() : '', overrides:ov, qty:s.querySelector('#e_qty').value.trim(), catId};
+    if (kind === 'item'){
+      const oldKey = rec ? productKey(rec) : null;
+      const it = rec ? Object.assign(get('items', rec.id) || rec, fields) : Object.assign(newItemFrom(fields, curList().id), fields);
+      put('items', it, true); remember(it);
+      const wantUsual = us && us.classList.contains('on');
+      const existing = live('usuals').filter(u => productKey(u) === (oldKey || productKey(it)) || productKey(u) === productKey(it));
+      if (wantUsual){ if (existing.length) existing.forEach(u => put('usuals', Object.assign(u, fields), true)); else put('usuals', Object.assign({id:uid('us')}, fields), true); }
+      else existing.forEach(u => del('usuals', u.id, true));
+      if (rec && oldKey !== productKey(it)) movePrices(oldKey, productKey(it));
+    } else {
+      const u = rec ? Object.assign(get('usuals', rec.id) || rec, fields) : Object.assign({id:uid('us')}, fields);
+      put('usuals', u, true); remember(u);
+    }
+    save(); closeSheet(); render();
+  };
+}
+function movePrices(oldKey, newKey){
+  live('prices').forEach(p => { if (p.id.startsWith(oldKey + '__')){ const st = p.id.slice(oldKey.length + 2); if (!get('prices', newKey + '__' + st)) put('prices', {id:newKey + '__' + st, price:p.price, date:p.date}, true); } });
+}
+function wireSuggest(input, box, onPick){
+  const show = () => {
+    const list = suggestions(input.value, 6);
+    if (!list.length || document.activeElement !== input){ box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="sugg">' + list.map((o, i) => { const c = get('cats', o.catId); const sub = [subLine(o), c ? c.name : ''].filter(Boolean).join(' · ');
+      return '<button data-i="' + i + '" type="button">' + esc(o.name) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</button>'; }).join('') + '</div>';
+    box.querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); onPick(list[+b.dataset.i]); box.innerHTML = ''; }));
+  };
+  input.addEventListener('input', show); input.addEventListener('focus', show);
+  input.addEventListener('blur', () => setTimeout(() => box.innerHTML = '', 150));
+}
+
+/* ---------- actions ---------- */
+function quickAdd(src){
+  const L = curList();
+  const it = newItemFrom(typeof src === 'string' ? {name:src} : src, L.id);
+  if (!it.name) return;
+  put('items', it, true); remember(it); save(); render();
+  toast('Added ' + it.name);
+}
+function deleteItems(ids){
+  const sn = snapshot('items', ids); ids.forEach(id => del('items', id, true)); save();
+  ids.forEach(id => ui.open.delete(id)); render();
+  toast(ids.length === 1 ? 'Deleted ' + (sn[0].name || 'item') : 'Deleted ' + ids.length + ' items', () => restore('items', sn));
+}
+function toggleUsual(it){
+  const k = productKey(it); const ex = live('usuals').filter(u => productKey(u) === k);
+  if (ex.length){ const sn = snapshot('usuals', ex.map(u => u.id)); ex.forEach(u => del('usuals', u.id, true)); save(); render(); toast('Removed from usuals', () => restore('usuals', sn)); }
+  else { put('usuals', {id:uid('us'), name:it.name, details:it.details, brandMode:it.brandMode, brand:it.brand, overrides:{...(it.overrides||{})}, qty:it.qty, catId:it.catId}); render(); toast('Saved to usuals'); }
+}
+function checkItem(id){
+  const it = get('items', id); if (!it) return;
+  if (it.checked){ it.checked = false; delete it.checkedAt; put('items', it); render(); return; }
+  ui.checking.add(id); it.checked = true; it.checkedAt = now(); ui.open.delete(id); put('items', it, true);
+  render();
+  setTimeout(() => { ui.checking.delete(id); save(); render(); }, 450);
+}
+async function pastePrice(it, stId){
+  let text = '';
+  try { text = await navigator.clipboard.readText(); } catch(e){ text = ''; }
+  let val = parsePrice(text);
+  if (val == null){
+    const v = await ask({title:'Enter the price', message: text ? 'Couldn’t find a price in what you copied. Type it instead.' : 'Type the price you saw at ' + get('stores', stId).name + '.', input:{placeholder:'4.99', type:'decimal'}, ok:'Save'});
+    if (v === false) return; val = parsePrice(v); if (val == null){ toast('That doesn’t look like a price'); return; }
+  }
+  put('prices', {id:productKey(it) + '__' + stId, price:val, date:todayStr()}); render();
+  toast(money(val) + ' saved for ' + get('stores', stId).name);
+}
+function parsePrice(t){ if (!t) return null; const s = String(t).replace(/,/g, ''); const m = s.match(/\$\s*(\d{1,5}(?:\.\d{1,2})?)/) || s.match(/(\d{1,5}(?:\.\d{1,2})?)/); if (!m) return null; const n = parseFloat(m[1]); return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null; }
+
+async function listsSheet(){
+  const L = curList();
+  const s = openSheet('<h2>Your lists</h2><div class="sheet-list" id="listSort" style="position:relative">' + lists().map(l => { const n = itemsIn(l.id).filter(i => !i.checked).length;
+    return '<div class="srow' + (l.id === L.id ? ' cur' : '') + '" data-lid="' + l.id + '"><span class="handle">' + IC.grip + '</span><div class="grow" data-act="pickList"><b>' + esc(l.name) + '</b><small>' + n + ' item' + (n === 1 ? '' : 's') + ' to get</small></div>' +
+      '<button class="mini" data-act="renameList">' + IC.edit + '</button><button class="mini" data-act="deleteList">' + IC.trash + '</button></div>'; }).join('') + '</div>' +
+    '<button class="btn primary" style="width:100%" data-act="newList">New list</button>');
+  makeSortable(s.querySelector('#listSort'), '.srow', els => { els.forEach((el, i) => { const l = get('lists', el.dataset.lid); if (l && l.order !== i){ l.order = i; put('lists', l, true); } }); save(); });
+  s.addEventListener('click', async e => {
+    const a = e.target.closest('[data-act]'); if (!a) return; const row = e.target.closest('[data-lid]'); const l = row && get('lists', row.dataset.lid);
+    if (a.dataset.act === 'pickList'){ curListId = l.id; LS.set('gl_list', l.id); ui.open.clear(); closeSheet(); render(); window.scrollTo(0,0); }
+    if (a.dataset.act === 'renameList'){ const v = await ask({title:'Rename list', input:{value:l.name}, ok:'Save'}); if (v && v.trim()){ l.name = v.trim(); put('lists', l); } render(); listsSheet(); }
+    if (a.dataset.act === 'deleteList'){
+      if (lists().length === 1){ toast('You need at least one list'); return; }
+      const ok = await ask({title:'Delete “' + l.name + '”?', message:'Its items are deleted too. Usuals are kept.', ok:'Delete', danger:true});
+      if (ok){ itemsIn(l.id).forEach(i => del('items', i.id, true)); del('lists', l.id); if (curListId === l.id) curListId = lists()[0].id; LS.set('gl_list', curListId); }
+      render(); listsSheet();
+    }
+    if (a.dataset.act === 'newList'){ const v = await ask({title:'New list', input:{placeholder:'Costco run'}, ok:'Create'}); if (v && v.trim()){ const nl = put('lists', {id:uid('list'), name:v.trim(), order:lists().length, layout:setting('defaultLayout','cat')}); curListId = nl.id; LS.set('gl_list', nl.id); } render(); }
+  });
+}
+function listMenu(){
+  const L = curList(); const n = itemsIn(L.id).filter(i => i.checked).length;
+  const s = openSheet('<h2>' + esc(L.name) + '</h2>' +
+    '<button class="menu-item" data-m="layout">' + ((L.layout || 'cat') === 'cat' ? 'Show as one plain list' : 'Group by category') + '</button>' +
+    '<button class="menu-item" data-m="select">Select items…</button>' +
+    '<button class="menu-item" data-m="clear">Clear checked' + (n ? ' (' + n + ')' : '') + '</button>' +
+    '<button class="menu-item" data-m="rename">Rename list</button>' +
+    '<button class="menu-item danger" data-m="all">Delete all items</button>');
+  s.addEventListener('click', async e => {
+    const b = e.target.closest('[data-m]'); if (!b) return; const m = b.dataset.m;
+    if (m === 'layout'){ L.layout = (L.layout || 'cat') === 'cat' ? 'flat' : 'cat'; put('lists', L); closeSheet(); render(); }
+    if (m === 'select'){ ui.select = true; ui.selected.clear(); closeSheet(); render(); }
+    if (m === 'clear'){ closeSheet(); clearChecked(); }
+    if (m === 'rename'){ const v = await ask({title:'Rename list', input:{value:L.name}, ok:'Save'}); if (v && v.trim()){ L.name = v.trim(); put('lists', L); } render(); }
+    if (m === 'all'){ closeSheet(); const ids = itemsIn(L.id).map(i => i.id); if (!ids.length){ toast('The list is already empty'); return; }
+      const ok = await ask({title:'Delete all ' + ids.length + ' items?', message:'This empties “' + L.name + '”. Your usuals are kept.', ok:'Delete all', danger:true}); if (ok) deleteItems(ids); }
+  });
+}
+function clearChecked(){ const ids = itemsIn(curList().id).filter(i => i.checked).map(i => i.id); if (!ids.length){ toast('Nothing checked yet'); return; } deleteItems(ids); }
+
+async function editStore(st){
+  const isNew = !st; const r = st ? {...st} : {name:'', label:'', url:'', sort:'', brand:'', organic:'', note:''};
+  const s = openSheet('<h2>' + (isNew ? 'Add a store' : esc(r.name)) + '</h2>' +
+    '<div class="fld"><label>Name</label><input id="s_name" value="' + esc(r.name) + '" placeholder="Stop & Shop"></div>' +
+    '<div class="fld"><label>Location label</label><input id="s_label" value="' + esc(r.label) + '" placeholder="Huntington"><div class="help">Just a reminder for you. Pick your location on the store’s own website once; it remembers.</div></div>' +
+    '<div class="fld"><label>Search link</label><textarea id="s_url" rows="3" placeholder="https://…TESTITEM…" autocapitalize="none" spellcheck="false">' + esc(r.url) + '</textarea>' +
+      '<div class="help">On the store’s site, search for <b>TESTITEM</b>, copy the page address, and paste it here. The app swaps TESTITEM for each item. A link without TESTITEM opens that page and copies the item’s words so you can paste them into the store’s search.</div></div>' +
+    '<div class="fld"><label>Store brand</label><input id="s_brand" value="' + esc(r.brand) + '" placeholder="Kirkland Signature"></div>' +
+    '<div class="fld"><label>Organic store brand (optional)</label><input id="s_org" value="' + esc(r.organic) + '" placeholder="Nature’s Promise"><div class="help">Used for “store brand” items whose details include “organic”.</div></div>' +
+    '<div class="fld"><label>Lowest-price add-on (optional)</label><input id="s_sort" value="' + esc(r.sort) + '" placeholder="&sortBy=PriceLow" autocapitalize="none" spellcheck="false"><div class="help">Added to the link when an item is set to “Lowest price”.</div></div>' +
+    (r.note ? '<p>' + esc(r.note) + '</p>' : '') +
+    '<div class="btns"><button class="btn" id="s_test">Test with “milk”</button>' + (!isNew ? '<button class="btn danger" id="s_del" style="flex:0 0 auto;padding:13px 16px">' + IC.trash + '</button>' : '') + '</div>' +
+    '<div class="btns" style="margin-top:10px"><button class="btn" id="s_cancel">Cancel</button><button class="btn primary" id="s_save">Save</button></div>');
+  const val = () => ({name:s.querySelector('#s_name').value.trim(), label:s.querySelector('#s_label').value.trim(), url:s.querySelector('#s_url').value.trim(), brand:s.querySelector('#s_brand').value.trim(), organic:s.querySelector('#s_org').value.trim(), sort:s.querySelector('#s_sort').value.trim()});
+  let tested = false;
+  s.querySelector('#s_test').onclick = () => { const v = val(); if (!v.url){ toast('Add a search link first'); return; } tested = true;
+    const lk = storeLink({name:'milk', details:'', brandMode:'any'}, {...r, ...v, id:'test'}); if (lk.plain){ try{ navigator.clipboard.writeText('milk'); }catch(e){} }
+    window.open(lk.href, '_blank'); };
+  s.querySelector('#s_cancel').onclick = closeSheet;
+  if (!isNew) s.querySelector('#s_del').onclick = async () => { const ok = await ask({title:'Delete ' + r.name + '?', message:'Its saved prices are kept in case you add it back.', ok:'Delete', danger:true}); if (ok){ del('stores', st.id); render(); } };
+  s.querySelector('#s_save').onclick = () => {
+    const v = val(); if (!v.name){ s.querySelector('#s_name').style.borderColor = 'var(--danger)'; return; }
+    if (isNew) put('stores', {id:uid('st'), ...v, note:'', check:false, hidden:false, order:stores().length});
+    else { const cur = get('stores', st.id); const changedUrl = cur.url !== v.url; Object.assign(cur, v); if (changedUrl || tested) cur.check = false; put('stores', cur); }
+    closeSheet(); render();
+  };
+}
+
+/* ---------- event wiring ---------- */
+document.addEventListener('click', async e => {
+  const a = e.target.closest('[data-act]'); if (!a || a.closest('.overlay')) return;
+  const act = a.dataset.act; const row = a.closest('[data-id]'); const it = row ? get('items', row.dataset.id) : null;
+  if (swipeJustHappened){ swipeJustHappened = false; if (act === 'row') return; }
+  switch (act){
+    case 'tab': ui.tab = a.dataset.v; ui.select = false; render(); window.scrollTo(0,0); break;
+    case 'row':
+      if (!it) break;
+      if (ui.select){ ui.selected.has(it.id) ? ui.selected.delete(it.id) : ui.selected.add(it.id); render(); break; }
+      ui.open.has(it.id) ? ui.open.delete(it.id) : ui.open.add(it.id); render(); break;
+    case 'check': e.stopPropagation(); if (it) checkItem(it.id); break;
+    case 'edit': if (it) openEditor('item', it); break;
+    case 'usual': if (it) toggleUsual(it); break;
+    case 'delete': if (it) deleteItems([it.id]); break;
+    case 'storeLink': try { await navigator.clipboard.writeText(a.dataset.words); } catch(_){}
+      if (a.dataset.plain === '1') toast('Copied “' + a.dataset.words + '” — paste it into the store’s search'); break;
+    case 'noLink': { const st = get('stores', a.dataset.store); toast('Add a search link for ' + (st ? st.name : 'this store') + ' in Settings → Stores'); break; }
+    case 'pastePrice': if (it) pastePrice(it, a.dataset.store); break;
+    case 'editPrice': if (it){ const p = priceRec(it, a.dataset.store); const v = await ask({title:'Price at ' + get('stores', a.dataset.store).name, message:'Entered ' + fmtDate(p.date) + '. Clear the box to remove it.', input:{value:p.price.toFixed(2), type:'decimal'}, ok:'Save'});
+      if (v === false) break; if (!String(v).trim()){ del('prices', p.id); render(); break; } const n = parsePrice(v); if (n != null){ put('prices', {id:p.id, price:n, date:todayStr()}); render(); } } break;
+    case 'newItem': { const pre = $('#addin') ? $('#addin').value.trim() : ''; openEditor('item', null); if (pre){ const f = $('#e_name'); if (f){ f.value = pre; const g = guessCat(pre); if (g) $('#e_cat').value = g; } } if ($('#addin')) $('#addin').value = ''; break; }
+    case 'lists': listsSheet(); break;
+    case 'listMenu': listMenu(); break;
+    case 'clearChecked': clearChecked(); break;
+    case 'trip': { let sel = LS.get('gl_trip', []); const id = a.dataset.id; sel = sel.includes(id) ? sel.filter(x => x !== id) : sel.concat(id); LS.set('gl_trip', sel); render(); break; }
+    case 'tripAll': LS.set('gl_trip', []); render(); break;
+    case 'selDone': ui.select = false; ui.selected.clear(); render(); break;
+    case 'selDelete': if (ui.selected.size){ const ids = [...ui.selected]; ui.select = false; ui.selected.clear(); deleteItems(ids); } break;
+    case 'selUsual': if (ui.selected.size){ let n = 0; [...ui.selected].forEach(id => { const x = get('items', id); if (x && !isUsual(x)){ put('usuals', {id:uid('us'), name:x.name, details:x.details, brandMode:x.brandMode, brand:x.brand, overrides:{...(x.overrides||{})}, qty:x.qty, catId:x.catId}, true); n++; } }); save(); ui.select = false; ui.selected.clear(); render(); toast(n ? 'Saved ' + n + ' to usuals' : 'Already in usuals'); } break;
+    case 'selMove': if (ui.selected.size){ const others = lists().filter(l => l.id !== curList().id); if (!others.length){ toast('Make another list first'); break; }
+      const s = openSheet('<h2>Move ' + ui.selected.size + ' item' + (ui.selected.size > 1 ? 's' : '') + ' to…</h2>' + others.map(l => '<button class="menu-item" data-to="' + l.id + '">' + esc(l.name) + '</button>').join(''));
+      s.addEventListener('click', ev => { const b = ev.target.closest('[data-to]'); if (!b) return; [...ui.selected].forEach(id => { const x = get('items', id); if (x){ x.listId = b.dataset.to; put('items', x, true); } }); save(); const nm = get('lists', b.dataset.to).name; ui.select = false; ui.selected.clear(); closeSheet(); render(); toast('Moved to ' + nm); }); } break;
+    case 'addUsual': { const r = a.closest('[data-uid]'); const u = get('usuals', r.dataset.uid); if (!u) break; const L = curList(); const k = productKey(u);
+      const ex = itemsIn(L.id).find(i => !i.checked && productKey(i) === k); if (ex){ toast('Already on ' + L.name); break; }
+      const it2 = newItemFrom(u, L.id); put('items', it2, true); remember(it2); save(); render(); toast('Added ' + u.name + ' to ' + L.name); break; }
+    case 'editUsual': { const r = a.closest('[data-uid]'); const u = get('usuals', r.dataset.uid); if (u) openEditor('usual', u); break; }
+    case 'newUsual': openEditor('usual', null); break;
+    case 'goSync': ui.tab = 'settings'; render(); setTimeout(() => { const t = $('#tokin'); if (t){ t.scrollIntoView({block:'center'}); t.focus(); } }, 60); break;
+    case 'syncNow': sync(); break;
+    case 'syncInfo': await ask({title:'Sync issue', message:syncState.msg || 'Unknown problem.', ok:'Try again'}) && sync(); break;
+    case 'saveToken': { const v = $('#tokin').value.trim(); token = v; LS.set('gl_token', v); if (!v){ setSync('off'); render(); break; } setSync('idle'); await sync(); render(); if (syncState.s === 'ok') toast('Connected — lists will sync'); break; }
+    case 'showToken': { const t = $('#tokin'); t.type = t.type === 'password' ? 'text' : 'password'; a.textContent = t.type === 'password' ? 'Show' : 'Hide'; break; }
+    case 'scheme': setSetting('scheme', a.dataset.v); render(); break;
+    case 'toggleDefLayout': setSetting('defaultLayout', setting('defaultLayout','cat') === 'cat' ? 'flat' : 'cat'); render(); break;
+    case 'togglePaste': setSetting('paste', !setting('paste', false)); render(); break;
+    case 'toggleStore': { const st = get('stores', a.closest('[data-sid]').dataset.sid); st.hidden = !st.hidden; put('stores', st); render(); break; }
+    case 'editStore': editStore(get('stores', a.closest('[data-sid]').dataset.sid)); break;
+    case 'addStore': editStore(null); break;
+    case 'addCat': { const v = await ask({title:'New category', input:{placeholder:'Baby'}, ok:'Add'}); if (v && v.trim()) put('cats', {id:uid('cat'), name:v.trim(), hue:HUE_NAMES[cats().length % HUE_NAMES.length], order:cats().length}); render(); break; }
+    case 'catRename': { const c = get('cats', a.closest('[data-cid]').dataset.cid); const v = await ask({title:'Rename category', input:{value:c.name}, ok:'Save'}); if (v && v.trim()){ c.name = v.trim(); put('cats', c); } render(); break; }
+    case 'catDelete': { const c = get('cats', a.closest('[data-cid]').dataset.cid); const ok = await ask({title:'Delete “' + c.name + '”?', message:'Items in it move to Other.', ok:'Delete', danger:true}); if (ok){ del('cats', c.id); render(); } break; }
+    case 'catColor': { const c = get('cats', a.closest('[data-cid]').dataset.cid);
+      const s = openSheet('<h2>Color for ' + esc(c.name) + '</h2><div class="hues">' + HUE_NAMES.map(h => { const col = hueColors(h); return '<button data-h="' + h + '" style="background:' + col.bg + ';color:' + col.fg + (h === c.hue ? ';outline:3px solid var(--text)' : '') + '">' + h + '</button>'; }).join('') + '</div>');
+      s.addEventListener('click', ev => { const b = ev.target.closest('[data-h]'); if (!b) return; c.hue = b.dataset.h; put('cats', c); closeSheet(); render(); }); break; }
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'usualq'){ usualQuery = e.target.value; const pos = e.target.selectionStart; render(); const f = $('#usualq'); f.focus(); try{ f.setSelectionRange(pos, pos); }catch(_){} }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.id === 'addin' && e.key === 'Enter'){ e.preventDefault(); const v = e.target.value.trim(); if (!v) return;
+    const exact = suggestions(v, 6).find(o => norm(o.name) === norm(v) && o.src !== 'starter');
+    e.target.value = ''; $('#addsugg').innerHTML = ''; quickAdd(exact || v); setTimeout(() => { const f = $('#addin'); if (f) f.focus(); }, 30); }
+});
+document.addEventListener('focusin', e => {
+  if (e.target.id === 'addin' && !e.target._wired){ e.target._wired = true; wireSuggest(e.target, $('#addsugg'), o => { $('#addin').value = ''; quickAdd(o); setTimeout(() => { const f = $('#addin'); if (f) f.focus(); }, 30); }); e.target.dispatchEvent(new Event('focus')); }
+});
+
+/* ---------- swipe left to delete ---------- */
+let swipe = null, swipeJustHappened = false;
+document.addEventListener('touchstart', e => {
+  if (ui.select) return; const m = e.target.closest('.row-main'); if (!m || !m.closest('[data-id]') || e.target.closest('.circle')) return;
+  swipe = {m, x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, dir:null};
+}, {passive:true});
+document.addEventListener('touchmove', e => {
+  if (!swipe) return; const t = e.touches[0]; const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  if (!swipe.dir){ if (Math.abs(dx) > 8 || Math.abs(dy) > 8) swipe.dir = Math.abs(dx) > Math.abs(dy) && dx < 0 ? 'h' : 'v'; }
+  if (swipe.dir === 'h'){ e.preventDefault(); swipe.dx = Math.min(0, dx); swipe.m.classList.add('dragging'); swipe.m.style.transform = 'translateX(' + swipe.dx + 'px)'; }
+  else if (swipe.dir === 'v') swipe = null;
+}, {passive:false});
+document.addEventListener('touchend', () => {
+  if (!swipe) return; const {m, dx, dir} = swipe; swipe = null; if (dir !== 'h') return;
+  swipeJustHappened = true; setTimeout(() => swipeJustHappened = false, 400);
+  m.classList.remove('dragging');
+  if (dx < -100){ m.style.transform = 'translateX(-100%)'; const id = m.closest('[data-id]').dataset.id; setTimeout(() => deleteItems([id]), 180); }
+  else m.style.transform = '';
+});
+
+/* ---------- start ---------- */
+darkMQ.addEventListener ? darkMQ.addEventListener('change', render) : darkMQ.addListener(render);
+render();
+if (token) sync();
+</script>
+</body>
+</html>
