@@ -20,7 +20,8 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.35;transition:background .25s,color .25s}
-body{padding-top:var(--safe-t);padding-bottom:calc(76px + var(--safe-b));min-height:100vh;overscroll-behavior-y:none}
+html,body{height:100%;overflow:hidden}
+#scroller{position:fixed;top:0;left:0;right:0;bottom:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-top:var(--safe-t);padding-bottom:calc(76px + var(--safe-b))}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,select,textarea{font:inherit;font-size:16px;color:var(--text);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;width:100%;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
@@ -52,7 +53,6 @@ a{color:inherit;text-decoration:none}
 .field-wrap .sugg{right:0}
 
 /* trip filter */
-.sbar{position:fixed;top:0;left:0;right:0;height:var(--safe-t);background:var(--bg);z-index:55;transition:background .25s}
 .filt{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--sub);margin:-4px 0 10px;max-width:100%}
 .filt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .filt svg{flex-shrink:0}
@@ -207,8 +207,7 @@ a{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
-<div class="sbar"></div>
-<div id="app"></div>
+<div id="scroller"><div id="app"></div></div>
 <div id="errbox" class="hidden"></div>
 <script>
 /* =====================================================================
@@ -219,7 +218,7 @@ a{color:inherit;text-decoration:none}
 const GH_OWNER = 'calb417';        // GitHub account
 const GH_REPO  = 'grocery-data';   // private repo that holds the lists
 const GH_FILE  = 'data.json';      // file inside that repo
-const APP_VERSION = '1.8';
+const APP_VERSION = '1.9';
 /* ===================================================================== */
 
 /* ---------- on-screen error display ---------- */
@@ -246,12 +245,7 @@ function fixStatusBar(){
   probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
   document.body.appendChild(probe); const measured = probe.offsetHeight; probe.remove();
   const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-  const h = Math.max(screen.height, screen.width);
-  // the real status bar height for each iPhone size (points)
-  const expected = h >= 956 || h === 874 ? 62 : h >= 852 ? 59 : h >= 812 ? 47 : 20;
-  let top = measured;
-  if (standalone && (measured < 20 || measured > expected + 4)) top = expected;   // too small or too big: use the real height
-  if (!standalone) top = Math.min(measured, expected + 4);
+  const top = Math.min(measured, 70);
   statusInfo = measured + '/' + top;
   document.documentElement.style.setProperty('--safe-t', top + 'px');
 }
@@ -266,6 +260,7 @@ const now = () => Date.now();
 const uid = p => p + '_' + now().toString(36) + Math.random().toString(36).slice(2, 7);
 const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const $ = s => document.querySelector(s);
+const SC = document.getElementById('scroller');
 function todayStr(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function fmtDate(s){ if(!s) return ''; const [y,m,d] = s.split('-').map(Number); const dt = new Date(y, m-1, d);
   const o = {month:'short', day:'numeric'}; if (y !== new Date().getFullYear()) o.year = 'numeric'; return dt.toLocaleDateString('en-US', o); }
@@ -679,7 +674,7 @@ function render(){
   if (drag){ drag.pending = true; return; }
   applyTheme();
   const app = $('#app');
-  const y = window.scrollY;
+  const y = SC.scrollTop;
   let html = '<div class="wrap">';
   if (ui.tab === 'list') html += renderList();
   else if (ui.tab === 'usuals') html += renderUsuals();
@@ -694,7 +689,7 @@ function render(){
   app.innerHTML = html;
   if (focusId === 'addin'){ const f = $('#addin'); if (f){ f.value = focusVal; f.focus(); } }
   if (ui.tab === 'settings') mountSortables();
-  window.scrollTo(0, y);
+  SC.scrollTop = y;
 }
 function tabBtn(t, ic, label){ return '<button class="tab' + (ui.tab === t ? ' on' : '') + '" data-act="tab" data-v="' + t + '">' + ic + label + '</button>'; }
 
@@ -855,20 +850,20 @@ function makeSortable(container, itemSel, onDone){
     const hd = e.target.closest('.handle'); if (!hd) return;
     const el = hd.closest(itemSel); if (!el) return;
     e.preventDefault();
-    const startPage = e.clientY + window.scrollY, orig = el.offsetTop; let lastY = e.clientY, raf = 0;
+    const startPage = e.clientY + SC.scrollTop, orig = el.offsetTop; let lastY = e.clientY, raf = 0;
     el.classList.add('dragging'); el.style.transition = 'none';
     try { hd.setPointerCapture(e.pointerId); } catch(_){}
     const update = () => {
-      const dy = lastY + window.scrollY - startPage; const center = orig + dy + el.offsetHeight / 2;
+      const dy = lastY + SC.scrollTop - startPage; const center = orig + dy + el.offsetHeight / 2;
       const nx = el.nextElementSibling; if (nx && nx.matches(itemSel) && center > nx.offsetTop + nx.offsetHeight / 2) container.insertBefore(nx, el);
       const pv = el.previousElementSibling; if (pv && pv.matches(itemSel) && center < pv.offsetTop + pv.offsetHeight / 2) container.insertBefore(el, pv);
       el.style.transform = 'translateY(' + (orig + dy - el.offsetTop) + 'px)';
     };
     const tick = () => {   // scroll the page when dragging near the top or bottom edge
       const edge = 90, bottom = window.innerHeight - edge - 70;
-      if (Math.abs(lastY + window.scrollY - startPage) < 12) { raf = requestAnimationFrame(tick); return; }
-      if (lastY < edge) window.scrollBy(0, -Math.ceil((edge - lastY) / 5));
-      else if (lastY > bottom) window.scrollBy(0, Math.ceil((lastY - bottom) / 5));
+      if (Math.abs(lastY + SC.scrollTop - startPage) < 12) { raf = requestAnimationFrame(tick); return; }
+      if (lastY < edge) SC.scrollTop += -Math.ceil((edge - lastY) / 5);
+      else if (lastY > bottom) SC.scrollTop += Math.ceil((lastY - bottom) / 5);
       update(); raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -1173,7 +1168,7 @@ async function listsSheet(){
   makeSortable(s.querySelector('#listSort'), '.srow', els => { els.forEach((el, i) => { const l = get('lists', el.dataset.lid); if (l && l.order !== i){ l.order = i; put('lists', l, true); } }); save(); });
   s.addEventListener('click', async e => {
     const a = e.target.closest('[data-act]'); if (!a) return; const row = e.target.closest('[data-lid]'); const l = row && get('lists', row.dataset.lid);
-    if (a.dataset.act === 'pickList'){ curListId = l.id; LS.set('gl_list', l.id); ui.open.clear(); closeSheet(); render(); window.scrollTo(0,0); }
+    if (a.dataset.act === 'pickList'){ curListId = l.id; LS.set('gl_list', l.id); ui.open.clear(); closeSheet(); render(); SC.scrollTop = 0; }
     if (a.dataset.act === 'renameList'){ const v = await ask({title:'Rename list', input:{value:l.name}, ok:'Save'}); if (v && v.trim()){ l.name = v.trim(); put('lists', l); } render(); listsSheet(); }
     if (a.dataset.act === 'deleteList'){
       if (lists().length === 1){ toast('You need at least one list'); return; }
@@ -1238,7 +1233,7 @@ document.addEventListener('click', async e => {
   const act = a.dataset.act; const row = a.closest('[data-id]'); const it = row ? get('items', row.dataset.id) : null;
   if (swipeJustHappened){ swipeJustHappened = false; if (act === 'row') return; }
   switch (act){
-    case 'tab': ui.tab = a.dataset.v; ui.select = false; render(); window.scrollTo(0,0); break;
+    case 'tab': ui.tab = a.dataset.v; ui.select = false; render(); SC.scrollTop = 0; break;
     case 'row':
       if (!it) break;
       if (ui.select){ ui.selected.has(it.id) ? ui.selected.delete(it.id) : ui.selected.add(it.id); render(); break; }
@@ -1324,14 +1319,14 @@ function lpCancel(){ if (lp){ clearTimeout(lp.timer); lp = null; } }
 function beginDrag(l){
   swipe = null;
   const sel = l.kind === 'item' ? '.row' : '.catsec[data-cat]';
-  drag = {kind:l.kind, el:l.el, container:l.container, sel, startPage:l.y + window.scrollY, orig:l.el.offsetTop, lastY:l.y, pending:false};
+  drag = {kind:l.kind, el:l.el, container:l.container, sel, startPage:l.y + SC.scrollTop, orig:l.el.offsetTop, lastY:l.y, pending:false};
   l.el.classList.add('lifted');
   if (navigator.vibrate) try { navigator.vibrate(15); } catch(_){}
   drag.raf = requestAnimationFrame(dragTick);
 }
 function dragUpdate(){
   const d = drag; if (!d) return; const el = d.el;
-  const dy = d.lastY + window.scrollY - d.startPage; const center = d.orig + dy + el.offsetHeight / 2;
+  const dy = d.lastY + SC.scrollTop - d.startPage; const center = d.orig + dy + el.offsetHeight / 2;
   const nx = el.nextElementSibling; if (nx && nx.matches(d.sel) && center > nx.offsetTop + nx.offsetHeight / 2) d.container.insertBefore(nx, el);
   const pv = el.previousElementSibling; if (pv && pv.matches(d.sel) && center < pv.offsetTop + pv.offsetHeight / 2) d.container.insertBefore(el, pv);
   el.style.transform = 'translateY(' + (d.orig + dy - el.offsetTop) + 'px) scale(1.02)';
@@ -1339,8 +1334,8 @@ function dragUpdate(){
 function dragTick(){
   if (!drag) return;
   const edge = 100, bottom = window.innerHeight - edge - 80, y = drag.lastY;
-  if (y < edge) window.scrollBy(0, -Math.ceil((edge - y) / 5));
-  else if (y > bottom) window.scrollBy(0, Math.ceil((y - bottom) / 5));
+  if (y < edge) SC.scrollTop += -Math.ceil((edge - y) / 5);
+  else if (y > bottom) SC.scrollTop += Math.ceil((y - bottom) / 5);
   dragUpdate(); drag.raf = requestAnimationFrame(dragTick);
 }
 function endDrag(){
