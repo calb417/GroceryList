@@ -42,6 +42,7 @@ a{color:inherit;text-decoration:none}
 /* add bar */
 .addbar{display:flex;gap:8px;position:relative;margin-bottom:10px}
 .addbar input{border-radius:14px;padding:12px 14px;border-width:1.5px}
+.addbar .many{width:44px;flex-shrink:0;border-radius:14px;background:var(--card);border:1.5px solid var(--border);color:var(--accent);display:flex;align-items:center;justify-content:center}
 .addbar .plus{width:48px;flex-shrink:0;border-radius:14px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;justify-content:center}
 .sugg{position:absolute;left:0;right:56px;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border);border-radius:14px;z-index:30;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.12)}
 .sugg button{display:block;width:100%;text-align:left;padding:11px 14px;border-bottom:1px solid var(--border)}
@@ -55,6 +56,13 @@ a{color:inherit;text-decoration:none}
 .filt{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--sub);margin:-4px 0 10px;max-width:100%}
 .filt span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .filt svg{flex-shrink:0}
+.hsec{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:8px;overflow:hidden}
+.hsec summary{list-style:none;padding:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.hsec summary::-webkit-details-marker{display:none}
+.hsec summary::after{content:"+";font-size:20px;font-weight:600;color:var(--accent)}
+.hsec[open] summary::after{content:"–"}
+.hsec ul{margin:0;padding:0 14px 12px 32px;font-size:14px;line-height:1.45}
+.hsec li{margin-bottom:6px}
 .tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .srow.on .tick{background:var(--accent)}
 .chip{flex-shrink:0;font-size:13px;font-weight:600;padding:6px 12px;border-radius:99px;background:var(--card);color:var(--chip-text);border:1px solid var(--border)}
@@ -63,10 +71,17 @@ a{color:inherit;text-decoration:none}
 /* categories + rows */
 .cat-head{margin:14px 0 6px}
 .cat-pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 11px;border-radius:99px;letter-spacing:.2px}
-.group{background:var(--card);border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.group{position:relative;background:var(--card);border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+#catwrap{position:relative}
+.catsec{position:relative;background:var(--bg)}
+.row-main,.cat-pill{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.lifted{z-index:20;transition:none!important;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.row.lifted .row-main{background:var(--chip)}
+.catsec.lifted{border-radius:var(--r)}
 .row{position:relative;border-bottom:1px solid var(--border);overflow:hidden}
 .row:last-child{border-bottom:0}
-.swipe-bg{position:absolute;inset:0;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:20px;font-weight:600;font-size:14px}
+.swipe-bg{position:absolute;inset:0;visibility:hidden;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:flex-end;padding-right:20px;font-weight:600;font-size:14px}
+.row.swiping .swipe-bg{visibility:visible}
 .row-main{position:relative;background:var(--card);display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:56px;transition:transform .2s}
 .row-main.dragging{transition:none}
 .circle{width:26px;height:26px;border-radius:50%;border:2px solid var(--accent);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .15s}
@@ -204,7 +219,7 @@ a{color:inherit;text-decoration:none}
 const GH_OWNER = 'calb417';        // GitHub account
 const GH_REPO  = 'grocery-data';   // private repo that holds the lists
 const GH_FILE  = 'data.json';      // file inside that repo
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.7';
 /* ===================================================================== */
 
 /* ---------- on-screen error display ---------- */
@@ -220,6 +235,27 @@ function hideErrors(){ errors.length = 0; document.getElementById('errbox').clas
 function copyErrors(){ try{ navigator.clipboard.writeText(errors.join('\n\n') + '\n\nGrocery List v' + APP_VERSION); toast('Copied'); }catch(e){} }
 window.addEventListener('error', e => showError((e.message || 'Error') + (e.lineno ? ' (line ' + e.lineno + ')' : '')));
 window.addEventListener('unhandledrejection', e => showError('Promise: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason)));
+
+/* ---------- iPhone status bar space ----------
+   Some iOS versions report 0 for the status-bar safe area in Home Screen apps,
+   which lets the page draw under the clock. Measure it; if it comes back too small
+   in a Home Screen app, fall back to the status bar height for this iPhone size. */
+function fixStatusBar(){
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe); const measured = probe.offsetHeight; probe.remove();
+  const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  let top = measured;
+  if (standalone && measured < 20){
+    const h = Math.max(screen.height, screen.width);
+    top = h >= 852 ? 59 : h >= 812 ? 47 : 20;   // Dynamic Island iPhones, notch iPhones, older iPhones
+  }
+  document.documentElement.style.setProperty('--safe-t', top + 'px');
+}
+fixStatusBar();
+window.addEventListener('resize', fixStatusBar);
+window.addEventListener('orientationchange', () => setTimeout(fixStatusBar, 300));
+setTimeout(fixStatusBar, 600);
 
 /* ---------- tiny helpers ---------- */
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -524,9 +560,45 @@ function guessCat(name){
   const kn = get('known', 'k_' + k); if (kn && kn.catId && get('cats', kn.catId)) return kn.catId;
   const us = live('usuals').find(u => norm(u.name) === k); if (us && us.catId) return us.catId;
   const st = STARTER_LIST.find(s => s.name === k); if (st && get('cats', st.catId)) return st.catId;
-  const st2 = STARTER_LIST.find(s => k.endsWith(' ' + s.name) || k.startsWith(s.name + ' '));
-  if (st2 && get('cats', st2.catId)) return st2.catId;
+  const kw = keywordCat(k); if (kw && get('cats', kw)) return kw;
   return '';
+}
+/* Keyword guesses. Phrases win first (longest match), then single words checked from the
+   last word backwards, since the last word usually says what the item is
+   ("chicken broth" = pantry, "chocolate milk" = dairy). Plurals are handled. */
+const KEYWORDS = {
+  produce:'apple,banana,orange,lemon,lime,grape,strawberry,blueberry,raspberry,blackberry,berry,avocado,tomato,potato,onion,shallot,garlic,carrot,celery,broccoli,broccolini,cauliflower,spinach,lettuce,romaine,arugula,kale,cabbage,cucumber,pepper,jalapeno,zucchini,squash,mushroom,corn,scallion,cilantro,parsley,basil,mint,dill,rosemary,thyme,sage,ginger,pear,peach,plum,nectarine,cherry,watermelon,melon,cantaloupe,honeydew,pineapple,mango,papaya,kiwi,pomegranate,fig,asparagus,sprout,beet,radish,turnip,parsnip,leek,eggplant,artichoke,fennel,herb,salad,fruit,vegetable,veggie,clementine,tangerine,grapefruit,coconut,rhubarb,pumpkin,yam,okra,produce,green beans,snap peas,sweet potato,bell pepper,spring mix,mixed greens,greens',
+  dairy:'milk,egg,eggnog,butter,cheese,cheddar,mozzarella,parmesan,ricotta,feta,brie,gouda,swiss,yogurt,yoghurt,cream,creamer,kefir,margarine,buttermilk,half and half,sour cream,cream cheese,cottage cheese,whipped cream,heavy cream,string cheese,egg whites',
+  meat:'chicken,beef,steak,pork,bacon,sausage,ham,turkey,lamb,veal,rib,brisket,burger,hamburger,meatball,hotdog,hot dog,chop,cutlet,tenderloin,wing,drumstick,thigh,mince,chorizo,meat,ground beef,ground turkey,pork chops,short ribs,filet,sirloin,ribeye,kielbasa',
+  seafood:'fish,salmon,shrimp,tilapia,cod,scallop,crab,lobster,clam,mussel,oyster,halibut,flounder,haddock,sole,swordfish,mahi,trout,calamari,squid,seafood,tuna steak,crab cakes',
+  bakery:'bread,loaf,bagel,roll,bun,muffin,croissant,tortilla,pita,baguette,cake,cupcake,pie,donut,doughnut,brownie,danish,scone,biscuit,naan,wrap,english muffin,cannoli,pastry',
+  deli:'deli,salami,prosciutto,pepperoni,bologna,pastrami,mortadella,capicola,roast beef,sliced turkey,sliced ham,sliced cheese,american cheese,rotisserie chicken,potato salad,macaroni salad,coleslaw,provolone',
+  pantry:'pasta,spaghetti,penne,linguine,rigatoni,ziti,macaroni,noodle,rice,quinoa,oat,oatmeal,cereal,granola,flour,sugar,salt,spice,oil,vinegar,sauce,marinara,ketchup,mustard,mayo,mayonnaise,relish,dressing,broth,stock,soup,bean,chickpea,lentil,jelly,jam,honey,syrup,coffee,tea,cocoa,yeast,vanilla,breadcrumb,crouton,seasoning,cinnamon,paprika,oregano,cumin,bouillon,gravy,nutella,olive,pickle,can,black pepper,olive oil,peanut butter,maple syrup,baking soda,baking powder,canned tuna,tuna,tomato paste,tomato sauce,canned tomatoes,brown sugar,cake mix,pancake mix',
+  frozen:'frozen,popsicle,waffle,nugget,dumpling,gelato,sorbet,ice,ice cream,french fries,fries,tater tots,frozen pizza,pierogi',
+  snacks:'chip,pretzel,popcorn,cracker,cookie,nut,almond,cashew,peanut,pistachio,walnut,pecan,chocolate,candy,gummy,gummies,gum,salsa,hummus,dip,snack,goldfish,oreo,jerky,granola bar,trail mix,fruit snacks,rice cakes',
+  beverages:'water,seltzer,soda,juice,lemonade,drink,gatorade,beer,wine,vodka,whiskey,tequila,rum,liquor,kombucha,cola,coke,pepsi,sprite,iced tea,sparkling water,coffee pods,k cups,kcups',
+  household:'detergent,bleach,sponge,foil,ziploc,battery,bulb,cleaner,wipes,candle,napkin,tissue,trash,garbage,filter,lysol,windex,paper towels,paper towel,toilet paper,dish soap,dishwasher,trash bags,garbage bags,aluminum foil,plastic wrap,zip bags,light bulbs,dryer sheets,fabric softener,paper plates,laundry,dishwasher soap,dishwasher detergent,dishwasher pods,dishwasher tabs,rinse aid,laundry soap,laundry detergent,laundry pods,stain remover,hefty,glad,all purpose cleaner,glass cleaner,toilet bowl cleaner,disinfecting wipes,clorox wipes,swiffer,mop,broom,air freshener,storage bags,sandwich bags,parchment paper,wax paper,plastic cups,plastic forks,matches,lighter',
+  personal:'shampoo,conditioner,soap,toothpaste,toothbrush,floss,mouthwash,deodorant,razor,lotion,sunscreen,tampon,diaper,vitamin,medicine,advil,tylenol,bandaid,band aid,body wash,cotton swabs,q tips,hand soap,baby wipes,makeup,detangler,hairspray,hair spray,hair gel,gel,mousse,brush,comb,hair ties,lip balm,chapstick,face wash,cleanser,moisturizer,shaving cream,contact solution,cough drops,allergy medicine,first aid,bar soap,body lotion,dry shampoo,leave in conditioner,nail polish,cotton balls,feminine,pads'
+};
+const KW_WORDS = {}, KW_PHRASES = [];
+for (const c in KEYWORDS) for (const w of KEYWORDS[c].split(',')){ if (w.includes(' ')) KW_PHRASES.push([w, 'cat_' + c]); else if (!KW_WORDS[w]) KW_WORDS[w] = 'cat_' + c; }
+KW_PHRASES.sort((a, b) => b[0].length - a[0].length);
+function wordForms(w){ const f = [w]; if (w.endsWith('ies')) f.push(w.slice(0, -3) + 'y'); if (w.endsWith('oes') || w.endsWith('ches') || w.endsWith('shes') || w.endsWith('ses')) f.push(w.slice(0, -2)); if (w.endsWith('s')) f.push(w.slice(0, -1)); return f; }
+function keywordCat(name){
+  const k = ' ' + norm(name).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  if (k.trim().startsWith('frozen ')) return 'cat_frozen';
+  for (const [ph, cat] of KW_PHRASES){ if (k.includes(' ' + ph + ' ') || k.includes(' ' + ph + 's ')) return cat; }
+  const words = k.trim().split(' ').reverse();
+  for (const w of words) for (const f of wordForms(w)) if (KW_WORDS[f]) return KW_WORDS[f];
+  const st = STARTER_LIST.find(s => k.includes(' ' + s.name + ' '));
+  return st ? st.catId : '';
+}
+// Re-guess items sitting in Other that nobody put there on purpose.
+function recategorize(){
+  let n = 0;
+  live('items').forEach(it => { if (!it.catId && !it.catManual){ const g = guessCat(it.name); if (g){ it.catId = g; put('items', it, true); remember(it); n++; } } });
+  live('usuals').forEach(u => { if (!u.catId && !u.catManual){ const g = guessCat(u.name); if (g){ u.catId = g; put('usuals', u, true); n++; } } });
+  if (n) save();
 }
 function suggestions(q, limit){
   q = norm(q); if (!q) return [];
@@ -591,6 +663,8 @@ const IC = {
   starLine:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
   gear:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   pin:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0zM5 13v7h14v-7"/></svg>',
+  many:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h6M18 14v6M15 17h6"/></svg>',
+  help:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg>',
   ext:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>',
   grip:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
   edit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
@@ -599,6 +673,7 @@ const IC = {
 
 /* ---------- render: shell ---------- */
 function render(){
+  if (drag){ drag.pending = true; return; }
   applyTheme();
   const app = $('#app');
   const y = window.scrollY;
@@ -630,7 +705,7 @@ function renderList(){
           '<button class="icon-btn" data-act="listMenu" aria-label="List options">' + IC.dots + '</button></div>';
   h += '<button class="filt" data-act="tripSheet">' + IC.pin + '<span>' + esc(tripLabel()) + '</span>' + IC.down.replace('width="18" height="18"', 'width="14" height="14"') + '</button>';
   if (!token && !LS.get('gl_hide_banner', false)) h += '<div class="banner"><span style="flex:1"><b>Not syncing yet.</b> Add your GitHub token in Settings so both phones share lists.</span><button class="mini solid" data-act="goSync">Set up</button></div>';
-  h += '<div class="addbar"><input id="addin" placeholder="Add an item" autocomplete="off" autocapitalize="none" enterkeyhint="done"><button class="plus" data-act="newItem" aria-label="Add with details">' + IC.plus + '</button><div id="addsugg"></div></div>';
+  h += '<div class="addbar"><input id="addin" placeholder="Add an item" autocomplete="off" autocapitalize="none" enterkeyhint="done"><button class="many" data-act="addMany" aria-label="Add several items">' + IC.many + '</button><button class="plus" data-act="newItem" aria-label="Add with details">' + IC.plus + '</button><div id="addsugg"></div></div>';
   if (setting('paste', false)) h += renderTotals(all);
   if (!all.length){
     h += '<div class="empty"><b>Your list is empty</b>Type above to add an item, or pick from your usuals.<br><br><button class="btn primary" style="display:inline-block;flex:none;padding:10px 18px" data-act="tab" data-v="usuals">Open usuals</button></div>';
@@ -641,13 +716,15 @@ function renderList(){
       const groups = {};
       open.forEach(i => { const k = catOf(i) ? i.catId : ''; (groups[k] = groups[k] || []).push(i); });
       const order = cats().map(c => c.id).filter(id => groups[id]); if (groups['']) order.push('');
+      h += '<div id="catwrap">';
       order.forEach(cid => {
         const c = get('cats', cid); const col = hueColors(c ? c.hue : 'gray');
-        h += '<div class="cat-head"><span class="cat-pill" style="background:' + col.bg + ';color:' + col.fg + '">' + esc(c ? c.name : 'Other') + '</span></div>';
-        h += '<div class="group">' + groups[cid].sort((a,b) => (a.addedAt||0) - (b.addedAt||0)).map(rowHtml).join('') + '</div>';
+        h += '<div class="catsec"' + (cid ? ' data-cat="' + cid + '"' : '') + '><div class="cat-head"><span class="cat-pill" style="background:' + col.bg + ';color:' + col.fg + '">' + esc(c ? c.name : 'Other') + '</span></div>';
+        h += '<div class="group">' + groups[cid].sort(byItemOrder).map(rowHtml).join('') + '</div></div>';
       });
+      h += '</div>';
     } else {
-      h += '<div class="group" style="margin-top:4px">' + open.sort((a,b) => (a.addedAt||0) - (b.addedAt||0)).map(rowHtml).join('') + '</div>';
+      h += '<div class="group" style="margin-top:4px">' + open.sort(byItemOrder).map(rowHtml).join('') + '</div>';
     }
   } else {
     h += '<div class="empty" style="padding:28px 20px"><b>All done</b>Everything on this list is checked off.</div>';
@@ -658,6 +735,8 @@ function renderList(){
   }
   return h;
 }
+const itemOrd = i => (i.order != null ? i.order : (i.addedAt || 0));
+function byItemOrder(a, b){ return itemOrd(a) - itemOrd(b) || (a.addedAt||0) - (b.addedAt||0); }
 function rowHtml(it){
   const cls = ['row']; if (it.checked && !ui.checking.has(it.id)) cls.push('checked'); if (ui.checking.has(it.id)) cls.push('checking');
   if (ui.open.has(it.id) && !ui.select) cls.push('open'); if (ui.select && ui.selected.has(it.id)) cls.push('sel');
@@ -751,7 +830,7 @@ function renderSettings(){
     '<button class="switch' + (s.hidden ? '' : ' on') + '" data-act="toggleStore" aria-label="Show ' + esc(s.name) + '"></button></div>').join('') + '</div>';
   h += '<button class="menu-item" style="margin-top:8px" data-act="addStore">' + IC.plus + 'Add a store</button>';
 
-  h += '<div class="sec">Categories</div><div class="help" style="margin:-2px 0 8px">Drag to reorder. Tap the dot to change its color, the name to rename.</div>';
+  h += '<div class="sec">Categories</div><div class="help" style="margin:-2px 0 8px">Drag to reorder (or hold and drag a category on your list). Tap the dot to change its color, the name to rename.</div>';
   h += '<div class="card" id="catSort" style="position:relative">' + cats().map(c => { const col = hueColors(c.hue);
     return '<div class="line" data-cid="' + c.id + '"><span class="handle">' + IC.grip + '</span><button class="dot" data-act="catColor" style="background:' + col.bg + ';border-color:' + col.fg + '"></button>' +
       '<div class="grow" data-act="catRename" style="cursor:pointer">' + esc(c.name) + '</div><button class="mini" data-act="catDelete" aria-label="Delete ' + esc(c.name) + '">' + IC.trash + '</button></div>'; }).join('') + '</div>';
@@ -761,6 +840,7 @@ function renderSettings(){
     '<div style="display:flex;gap:8px"><button class="btn primary" data-act="saveToken">Save and sync</button><button class="btn" data-act="showToken" style="flex:0 0 auto;padding:13px 16px">Show</button></div>' +
     '<div class="help" id="syncstatus" style="margin-top:10px">' + syncStatusText() + '</div>' +
     '<div class="help">Lists are saved to the private repo ' + esc(GH_OWNER + '/' + GH_REPO) + '. The token stays on this phone only.</div></div></div>';
+  h += '<button class="menu-item" style="margin-top:14px" data-act="help">' + IC.help + 'How to use Grocery List</button>';
   h += '<div class="ver">Grocery List v' + APP_VERSION + '</div>';
   return h;
 }
@@ -858,7 +938,7 @@ function openEditor(kind, rec){
     const nm = name.value.trim(); if (!nm){ name.focus(); name.style.borderColor = 'var(--danger)'; return; }
     const ov = {}; s.querySelectorAll('[data-ov]').forEach(inp => { if (inp.value.trim()) ov[inp.dataset.ov] = inp.value.trim(); });
     let catId = cat.value; if (!catId && !catTouched) catId = guessCat(nm);
-    const fields = {name:nm, details:s.querySelector('#e_details').value.trim(), brandMode:r.brandMode, brand:r.brandMode === 'brand' ? s.querySelector('#e_brand').value.trim() : '', overrides:ov, qty:s.querySelector('#e_qty').value.trim(), catId};
+    const fields = {name:nm, details:s.querySelector('#e_details').value.trim(), brandMode:r.brandMode, brand:r.brandMode === 'brand' ? s.querySelector('#e_brand').value.trim() : '', overrides:ov, qty:s.querySelector('#e_qty').value.trim(), catId, catManual:catTouched};
     if (kind === 'item'){
       const oldKey = rec ? productKey(rec) : null;
       const it = rec ? Object.assign(get('items', rec.id) || rec, fields) : Object.assign(newItemFrom(fields, curList().id), fields);
@@ -888,6 +968,152 @@ function wireSuggest(input, box, onPick){
   };
   input.addEventListener('input', show); input.addEventListener('focus', show);
   input.addEventListener('blur', () => setTimeout(() => box.innerHTML = '', 150));
+}
+
+/* ---------- add several (typed, pasted or scanned with the iPhone's Scan Text) ---------- */
+const QTY_UNITS = '(?:x|lbs?|pounds?|oz|ounces?|pk|packs?|dozen|doz|gal|gallons?|bags?|cans?|boxes?|bottles?|jars?|bunch(?:es)?|heads?|loaves|loaf|cartons?|ct)';
+function parseLines(text){
+  const out = [];
+  String(text || '').split(/\n|;|,(?![^(]*\))/).forEach(raw => {
+    let t = raw.replace(/^[\s\-–—*•·○●◦▪□☐☑✓✔>]+/, '').replace(/^\d+[.)]\s+/, '').replace(/\s+/g, ' ').trim();
+    if (!t || t.length > 60) return;
+    let qty = '';
+    let m = t.match(new RegExp('^(\\d+(?:\\.\\d+)?\\s*' + QTY_UNITS + '?)\\s+(?:of\\s+)?(.+)$', 'i'));
+    if (m && /[a-z]/i.test(m[2])){ qty = m[1].trim(); t = m[2]; }
+    m = t.match(new RegExp('^(.+?)\\s*(?:\\(|-\\s*)?(x\\s*\\d+|\\d+\\s*' + QTY_UNITS + ')\\)?$', 'i'));
+    if (!qty && m && /[a-z]/i.test(m[1])){ qty = m[2].trim(); t = m[1]; }
+    m = t.match(/^(.+?)\s*\((\d+)\)$/);
+    if (!qty && m){ qty = m[2]; t = m[1]; }
+    t = t.replace(/[.:]+$/, '').trim();
+    if (t && /[a-z]/i.test(t)) out.push({name:t, qty});
+  });
+  return out;
+}
+/* ---------- recipes (pasted from Paprika or anywhere) ---------- */
+const FRACS = {'½':'1/2','⅓':'1/3','⅔':'2/3','¼':'1/4','¾':'3/4','⅛':'1/8','⅜':'3/8','⅝':'5/8','⅞':'7/8','⅕':'1/5','⅙':'1/6'};
+const R_NUM = '(?:\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?)(?:\\s*(?:-|–|to)\\s*(?:\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?))?';
+const R_UNIT = '(?:cups?|c\\.|tablespoons?|tbsps?\\.?|tbs\\.?|tbl\\.?|T|teaspoons?|tsps?\\.?|t|fl\\.?\\s?oz\\.?|ounces?|oz\\.?|pounds?|lbs?\\.?|grams?|g|kilograms?|kg|milliliters?|ml|liters?|litres?|l|quarts?|qts?\\.?|pints?|pts?\\.?|gallons?|gal\\.?|cloves?|cans?|jars?|packages?|pkgs?\\.?|packets?|sticks?|slices?|sprigs?|bunch(?:es)?|heads?|pinch(?:es)?|dash(?:es)?|handfuls?|pieces?|inch(?:es)?|containers?|bags?|boxes?|bottles?|envelopes?|stalks?|ears?|fillets?|links?|dozen|leaves|leaf)';
+const R_SIZE = '(?:extra[- ]large|large|medium|small|jumbo|whole|heaping|level|scant|generous|big)';
+const ING_RE = new RegExp('^(' + R_NUM + ')?\\s*(\\([^)]*\\))?\\s*(' + R_SIZE + '\\s+)?(?:(' + R_UNIT + ')(?=\\s|$))?\\s*(\\([^)]*\\))?\\s*(?:of\\s+)?(.*)$', 'i');
+// Only cooking steps are dropped. Words that name a product you buy (diced, crushed, shredded, grated, ground, sliced) stay.
+const PREP_WORDS = /^(?:(?:finely|roughly|coarsely|thinly|lightly|well|very)\s+)?(?:chopped|minced|softened|melted|beaten|peeled|cubed|halved|quartered|trimmed|rinsed|drained|packed|sifted|cooked|uncooked|cold|warm|hot|room temperature)\s+/i;
+const STAPLES = /^(?:water|cold water|warm water|hot water|boiling water|ice|ice cubes|salt|kosher salt|sea salt|table salt|pepper|black pepper|ground black pepper|salt and pepper|salt and black pepper|cooking spray|nonstick spray|nonstick cooking spray)$/i;
+function cleanText(t){ return String(t).replace(/(\d)([½⅓⅔¼¾⅛⅜⅝⅞⅕⅙])/g, '$1 $2').replace(/[½⅓⅔¼¾⅛⅜⅝⅞⅕⅙]/g, c => FRACS[c]).replace(/⁄/g, '/'); }
+function parseIngredient(line){
+  let t = cleanText(line).replace(/^[\s\-–—*•·○●◦▪□☐☑✓✔>]+/, '').replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  const why = /\boptional\b/i.test(t) ? 'optional' : /\bto taste\b|\bas needed\b/i.test(t) ? 'to taste' : '';
+  const m = t.match(ING_RE); let qty = '', name = t;
+  if (m){ qty = [m[1], m[2], m[3] && m[3].trim(), m[4], m[5]].filter(Boolean).join(' ').trim(); name = m[6] || ''; }
+  name = name.replace(/\([^)]*\)/g, ' ').split(/,| - | – /)[0]
+    .replace(/\b(?:to taste|divided|optional|as needed|at room temperature|room temperature|for (?:serving|garnish|garnishing|the pan|greasing|dusting|topping)|plus more\b.*|or more\b.*|or to taste\b.*|if desired\b.*|for \w+ing\b.*)\b.*$/i, '')
+    .replace(/\s+/g, ' ').trim();
+  for (let i = 0; i < 3; i++) name = name.replace(PREP_WORDS, '').replace(/^(?:freshly|fresh)\s+(?:ground|cracked)\s+/i, '');
+  name = name.replace(/^(?:a|an|some)\s+/i, '').replace(/[.;:]+$/, '').trim();
+  if (!name || name.length > 50 || !/[a-z]/i.test(name)) return null;
+  const staple = STAPLES.test(name);
+  return {name, qty, staple: staple || !!why, why: why || (staple ? 'pantry staple' : '')};
+}
+function looksLikeRecipe(text){
+  if (/^\s*ingredients?\s*:?\s*$/im.test(text)) return true;
+  const unitLine = new RegExp('^\\s*[-•*]?\\s*' + R_NUM + '\\s*(\\([^)]*\\))?\\s*' + R_UNIT + '\\s', 'i');
+  return cleanText(text).split('\n').filter(l => unitLine.test(l)).length >= 2;
+}
+function extractRecipe(text){
+  let lines = cleanText(text).split(/\r?\n/).map(l => l.trim());
+  const start = lines.findIndex(l => /^ingredients?\s*:?$/i.test(l));
+  if (start >= 0){
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex(l => /^(?:directions|instructions|method|preparation|steps|notes|nutrition)\b/i.test(l));
+    lines = end >= 0 ? rest.slice(0, end) : rest;
+  } else {
+    const first = lines.findIndex(Boolean);   // a first line with no numbers, followed by a blank line, is the title
+    if (first >= 0 && !/\d/.test(lines[first]) && !lines[first + 1]) lines.splice(first, 1);
+    const stop = lines.findIndex(l => /^(?:directions|instructions|method|preparation|steps|notes|nutrition)\b/i.test(l));
+    if (stop >= 0) lines = lines.slice(0, stop);
+  }
+  const out = [], seen = new Set();
+  for (const l of lines){
+    if (!l || /:$/.test(l) || /^https?:\/\//i.test(l)) continue;
+    if (/^(?:servings|serves|yield|makes|prep time|cook time|total time|source|rating|categories|difficulty|description|by )\b/i.test(l)) continue;
+    if (l.length > 90 || /[a-z]\.\s+[A-Z]/.test(l) || /^(?:step\s*)?\d+[.)]\s+[A-Z][a-z]+\s+\w+\s+\w+/.test(l)) continue;   // sentences = directions
+    const ing = parseIngredient(l); if (!ing) continue;
+    const k = norm(ing.name); if (seen.has(k)) continue; seen.add(k); out.push(ing);
+  }
+  return out;
+}
+function addParsed(rows){
+  const L = curList(); const have = new Set(itemsIn(L.id).filter(i => !i.checked).map(i => norm(i.name)));
+  let added = 0, skipped = 0;
+  rows.forEach(({name, qty}) => {
+    if (have.has(norm(name))){ skipped++; return; }
+    const saved = live('usuals').find(u => norm(u.name) === norm(name)) || get('known', 'k_' + norm(name));
+    const it = newItemFrom(saved ? {...saved, name: saved.name} : {name}, L.id);
+    if (qty) it.qty = qty;
+    put('items', it, true); remember(it); have.add(norm(name)); added++;
+  });
+  return {added, skipped};
+}
+function addManySheet(startMode){
+  let mode = startMode || 'list', text = '';
+  const draw = () => openSheet('<h2>Add several items</h2>' +
+    '<div class="seg" id="m_mode" style="margin-bottom:10px"><button data-m="list"' + (mode === 'list' ? ' class="on"' : '') + '>List or photo</button><button data-m="recipe"' + (mode === 'recipe' ? ' class="on"' : '') + '>Recipe</button></div>' +
+    (mode === 'list'
+      ? '<p>One item per line. For a handwritten list, tap the box, then tap <b>Scan Text</b> and point your camera at the list.</p>'
+      : '<p>In Paprika, open a recipe, tap <b>Share</b>, and copy it (or select the ingredients and copy). Paste it here. You’ll pick which ingredients to add next.</p>') +
+    '<div class="fld"><textarea id="m_text" rows="8" placeholder="' + (mode === 'list' ? 'milk&#10;2 lbs chicken&#10;bananas&#10;eggnog x2' : 'Ingredients:&#10;2 cups flour&#10;1 onion, chopped&#10;3 cloves garlic, minced') + '" autocapitalize="none"></textarea><div class="help" id="m_count"></div></div>' +
+    '<div class="btns"><button class="btn" id="m_cancel">Cancel</button><button class="btn primary" id="m_go">' + (mode === 'list' ? 'Add all' : 'Next') + '</button></div>', sh => {
+      const ta = sh.querySelector('#m_text'), cnt = sh.querySelector('#m_count'); ta.value = text;
+      const upd = () => { text = ta.value;
+        if (mode === 'list' && looksLikeRecipe(text)){ cnt.innerHTML = 'This looks like a recipe. <button class="linkbtn" id="m_switch">Use recipe mode</button>'; sh.querySelector('#m_switch').onclick = () => { mode = 'recipe'; draw(); }; return; }
+        const n = (mode === 'list' ? parseLines(text) : extractRecipe(text)).length; cnt.textContent = n + (mode === 'list' ? ' item' : ' ingredient') + (n === 1 ? '' : 's'); };
+      ta.addEventListener('input', upd); upd(); setTimeout(() => ta.focus(), 60);
+      sh.querySelector('#m_mode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b || b.dataset.m === mode) return; text = ta.value; mode = b.dataset.m; draw(); });
+      sh.querySelector('#m_cancel').onclick = closeSheet;
+      sh.querySelector('#m_go').onclick = () => {
+        text = ta.value;
+        if (mode === 'recipe'){ const rows = extractRecipe(text); if (!rows.length){ cnt.textContent = 'No ingredients found. Paste the ingredient lines.'; ta.focus(); return; } recipePreview(rows, text); return; }
+        const r = addParsed(parseLines(text));
+        if (!r.added && !r.skipped){ ta.focus(); cnt.textContent = 'Nothing to add yet'; return; }
+        save(); closeSheet(); render();
+        toast('Added ' + r.added + ' item' + (r.added === 1 ? '' : 's') + (r.skipped ? ' · ' + r.skipped + ' already on the list' : ''));
+      };
+    });
+  draw();
+}
+function recipePreview(rows, text){
+  const L = curList(); const have = new Set(itemsIn(L.id).filter(i => !i.checked).map(i => norm(i.name)));
+  rows.forEach(r => { r.onList = have.has(norm(r.name)); r.on = !r.onList && !r.staple; });
+  const s = openSheet('<h2>Pick ingredients</h2><p>Untick anything you already have. Adding to <b>' + esc(L.name) + '</b>.</p>' +
+    '<div class="sheet-list" id="r_list">' + rows.map((r, i) => '<div class="srow' + (r.on ? ' on' : '') + '" data-i="' + i + '"><span class="tick">' + (r.on ? IC.check : '') + '</span><div class="grow"><b>' + esc(r.name) + '</b>' +
+      '<small>' + esc([r.qty, r.onList ? 'already on your list' : '', r.staple && !r.onList ? r.why : ''].filter(Boolean).join(' · ')) + '</small></div></div>').join('') + '</div>' +
+    '<div class="btns"><button class="btn" id="r_back">Back</button><button class="btn primary" id="r_add"></button></div>');
+  const btn = s.querySelector('#r_add');
+  const upd = () => { const n = rows.filter(r => r.on).length; btn.textContent = n ? 'Add ' + n + ' item' + (n === 1 ? '' : 's') : 'Add'; };
+  upd();
+  s.querySelector('#r_list').addEventListener('click', e => { const row = e.target.closest('[data-i]'); if (!row) return; const r = rows[+row.dataset.i]; r.on = !r.on;
+    row.classList.toggle('on', r.on); row.querySelector('.tick').innerHTML = r.on ? IC.check : ''; upd(); });
+  s.querySelector('#r_back').onclick = () => { closeSheet(); addManySheet('recipe'); setTimeout(() => { const ta = $('#m_text'); if (ta){ ta.value = text; ta.dispatchEvent(new Event('input')); } }, 0); };
+  btn.onclick = () => { const pick = rows.filter(r => r.on); if (!pick.length){ toast('Tick at least one ingredient'); return; }
+    const r = addParsed(pick); save(); closeSheet(); render(); toast('Added ' + r.added + ' ingredient' + (r.added === 1 ? '' : 's') + (r.skipped ? ' · ' + r.skipped + ' already on the list' : '')); };
+}
+
+/* ---------- how to use ---------- */
+const HELP = [
+  ['Your list', ['Type in <b>Add an item</b> and press Done. It lands in the right category on its own.', 'Tap the circle to check something off. It moves to <b>Got it</b> at the bottom; tap again to undo.', 'Tap an item to open it: store buttons, Edit, Make usual and Delete.', '<b>Clear checked</b> removes everything you’ve got. The ⋯ menu also has Select, Delete all, and plain-list view.']],
+  ['Adding details', ['Tap <b>+</b> to add with details: what kind (organic, boneless), brand, quantity and category.', 'Brand can be Any, a specific brand, Store brand (each store’s own label) or Lowest (results sorted cheapest first).', 'The app remembers what you type, so next time it suggests the item with everything filled in.']],
+  ['Checking prices at stores', ['Open an item and tap a store. The store’s site opens already searching for it, at the location you picked on that site.', '<b>Shopping at…</b> under the list name limits which stores show for this trip.', 'Turn stores on or off, reorder them, or fix a link in Settings → Stores.']],
+  ['Scan a handwritten list', ['Tap the lines-and-plus button next to <b>+</b>.', 'Keep <b>List or photo</b> selected, tap the box, then tap <b>Scan Text</b>.', 'Point the camera at your list and tap Insert. Fix anything it misread, then tap <b>Add all</b>.', 'Each line becomes an item. “2 lbs chicken” or “eggs x2” fills in the quantity.']],
+  ['Add from a Paprika recipe', ['In Paprika, open the recipe, tap <b>Share</b>, and copy it. Or select just the ingredients and copy.', 'Here, tap the lines-and-plus button, choose <b>Recipe</b>, paste, and tap <b>Next</b>.', 'Untick what you already have (salt and water start unticked) and tap <b>Add</b>.', 'Amounts like “2 cups” go in the quantity, and words like “chopped” are dropped.']],
+  ['Usuals and lists', ['Star an item with <b>Make usual</b> to keep it in Usuals. Tap <b>+ Add</b> there to put it back on your list.', 'Tap the list name at the top to switch lists or make a new one, like Costco run.']],
+  ['Reorder and delete', ['Hold an item for a moment, then drag it up or down.', 'Hold a category’s colored label to move the whole category.', 'Swipe an item left to delete it. Every delete has an <b>Undo</b>.']],
+  ['Sharing between phones', ['Both phones use the same token (Settings → Sync), so lists, usuals and settings stay in step.', 'Changes show on the other phone within about 30 seconds, or right away when the app is reopened.', 'The pill at the top says <b>Synced</b> when everything is saved.']]
+];
+function helpSheet(){
+  openSheet('<h2>How to use Grocery List</h2><p>Tap a topic to open it.</p>' +
+    HELP.map(([title, pts]) => '<details class="hsec"><summary>' + esc(title) + '</summary><ul>' + pts.map(p => '<li>' + p + '</li>').join('') + '</ul></details>').join('') +
+    (setting('paste', false) ? '<details class="hsec"><summary>Prices and store totals</summary><ul><li>Open an item, find the price on a store’s site, copy it, come back and tap <b>Paste</b> next to that store.</li><li>Each price keeps the date you entered it. Totals per store show at the top of the list.</li></ul></details>' : '') +
+    '<div class="btns"><button class="btn primary" onclick="closeSheet()">Done</button></div>');
 }
 
 /* ---------- actions ---------- */
@@ -1017,6 +1243,8 @@ document.addEventListener('click', async e => {
     case 'pastePrice': if (it) pastePrice(it, a.dataset.store); break;
     case 'editPrice': if (it){ const p = priceRec(it, a.dataset.store); const v = await ask({title:'Price at ' + get('stores', a.dataset.store).name, message:'Entered ' + fmtDate(p.date) + '. Clear the box to remove it.', input:{value:p.price.toFixed(2), type:'decimal'}, ok:'Save'});
       if (v === false) break; if (!String(v).trim()){ del('prices', p.id); render(); break; } const n = parsePrice(v); if (n != null){ put('prices', {id:p.id, price:n, date:todayStr()}); render(); } } break;
+    case 'addMany': addManySheet(); break;
+    case 'help': helpSheet(); break;
     case 'newItem': { const pre = $('#addin') ? $('#addin').value.trim() : ''; openEditor('item', null); if (pre){ const f = $('#e_name'); if (f){ f.value = pre; const g = guessCat(pre); if (g) $('#e_cat').value = g; } } if ($('#addin')) $('#addin').value = ''; break; }
     case 'lists': listsSheet(); break;
     case 'listMenu': listMenu(); break;
@@ -1066,29 +1294,96 @@ document.addEventListener('focusin', e => {
   if (e.target.id === 'addin' && !e.target._wired){ e.target._wired = true; wireSuggest(e.target, $('#addsugg'), o => { $('#addin').value = ''; quickAdd(o); setTimeout(() => { const f = $('#addin'); if (f) f.focus(); }, 30); }); e.target.dispatchEvent(new Event('focus')); }
 });
 
+/* ---------- hold and drag to reorder items and categories ---------- */
+let drag = null, lp = null, lastTouch = 0;
+function lpStart(target, x, y){
+  lpCancel();
+  if (ui.select || ui.tab !== 'list' || drag) return;
+  const rm = target.closest('.row-main'), head = target.closest('.cat-head');
+  if (rm){
+    const row = rm.closest('.row'); if (!row || !row.dataset.id || row.classList.contains('checked') || target.closest('.circle')) return;
+    lp = {kind:'item', el:row, container:row.parentElement, x, y};
+  } else if (head){
+    const sec = head.closest('.catsec[data-cat]'); if (!sec) return;
+    lp = {kind:'cat', el:sec, container:sec.parentElement, x, y};
+  } else return;
+  lp.timer = setTimeout(() => { const l = lp; lp = null; if (l) beginDrag(l); }, 420);
+}
+function lpMove(x, y){ if (lp && (Math.abs(x - lp.x) > 9 || Math.abs(y - lp.y) > 9)) lpCancel(); }
+function lpCancel(){ if (lp){ clearTimeout(lp.timer); lp = null; } }
+function beginDrag(l){
+  swipe = null;
+  const sel = l.kind === 'item' ? '.row' : '.catsec[data-cat]';
+  drag = {kind:l.kind, el:l.el, container:l.container, sel, startPage:l.y + window.scrollY, orig:l.el.offsetTop, lastY:l.y, pending:false};
+  l.el.classList.add('lifted');
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch(_){}
+  drag.raf = requestAnimationFrame(dragTick);
+}
+function dragUpdate(){
+  const d = drag; if (!d) return; const el = d.el;
+  const dy = d.lastY + window.scrollY - d.startPage; const center = d.orig + dy + el.offsetHeight / 2;
+  const nx = el.nextElementSibling; if (nx && nx.matches(d.sel) && center > nx.offsetTop + nx.offsetHeight / 2) d.container.insertBefore(nx, el);
+  const pv = el.previousElementSibling; if (pv && pv.matches(d.sel) && center < pv.offsetTop + pv.offsetHeight / 2) d.container.insertBefore(el, pv);
+  el.style.transform = 'translateY(' + (d.orig + dy - el.offsetTop) + 'px) scale(1.02)';
+}
+function dragTick(){
+  if (!drag) return;
+  const edge = 100, bottom = window.innerHeight - edge - 80, y = drag.lastY;
+  if (y < edge) window.scrollBy(0, -Math.ceil((edge - y) / 5));
+  else if (y > bottom) window.scrollBy(0, Math.ceil((y - bottom) / 5));
+  dragUpdate(); drag.raf = requestAnimationFrame(dragTick);
+}
+function endDrag(){
+  const d = drag; drag = null; if (!d) return;
+  cancelAnimationFrame(d.raf); d.el.style.transform = ''; d.el.classList.remove('lifted');
+  swipeJustHappened = true; setTimeout(() => swipeJustHappened = false, 400);
+  if (d.kind === 'item'){
+    [...d.container.children].filter(r => r.matches('.row') && r.dataset.id).forEach((r, i) => { const it = get('items', r.dataset.id); if (it && it.order !== i){ it.order = i; put('items', it, true); } });
+  } else {
+    const moved = [...d.container.children].filter(e => e.matches('.catsec[data-cat]')).map(e => e.dataset.cat);
+    const all = cats().map(c => c.id); const slots = []; all.forEach((id, i) => { if (moved.includes(id)) slots.push(i); });
+    slots.forEach((slot, k) => all[slot] = moved[k]);
+    all.forEach((id, i) => { const c = get('cats', id); if (c && c.order !== i){ c.order = i; put('cats', c, true); } });
+  }
+  save(); render();
+}
+// mouse fallback (computers); ignored right after a touch so taps on the phone don't trigger it
+document.addEventListener('mousedown', e => { if (now() - lastTouch > 800) lpStart(e.target, e.clientX, e.clientY); });
+document.addEventListener('mousemove', e => { if (drag && now() - lastTouch > 800){ drag.lastY = e.clientY; dragUpdate(); } else lpMove(e.clientX, e.clientY); });
+document.addEventListener('mouseup', () => { if (drag && now() - lastTouch > 800) endDrag(); else lpCancel(); });
+
 /* ---------- swipe left to delete ---------- */
 let swipe = null, swipeJustHappened = false;
 document.addEventListener('touchstart', e => {
+  lastTouch = now(); lpStart(e.target, e.touches[0].clientX, e.touches[0].clientY);
   if (ui.select) return; const m = e.target.closest('.row-main'); if (!m || !m.closest('[data-id]') || e.target.closest('.circle')) return;
   swipe = {m, x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, dir:null};
 }, {passive:true});
 document.addEventListener('touchmove', e => {
+  lastTouch = now();
+  if (drag){ e.preventDefault(); drag.lastY = e.touches[0].clientY; dragUpdate(); return; }
+  lpMove(e.touches[0].clientX, e.touches[0].clientY);
   if (!swipe) return; const t = e.touches[0]; const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
   if (!swipe.dir){ if (Math.abs(dx) > 8 || Math.abs(dy) > 8) swipe.dir = Math.abs(dx) > Math.abs(dy) && dx < 0 ? 'h' : 'v'; }
-  if (swipe.dir === 'h'){ e.preventDefault(); swipe.dx = Math.min(0, dx); swipe.m.classList.add('dragging'); swipe.m.style.transform = 'translateX(' + swipe.dx + 'px)'; }
+  if (swipe.dir === 'h'){ e.preventDefault(); swipe.m.parentElement.classList.add('swiping'); swipe.dx = Math.min(0, dx); swipe.m.classList.add('dragging'); swipe.m.style.transform = 'translateX(' + swipe.dx + 'px)'; }
   else if (swipe.dir === 'v') swipe = null;
 }, {passive:false});
+document.addEventListener('touchcancel', () => { lpCancel(); if (drag) endDrag(); });
 document.addEventListener('touchend', () => {
+  lastTouch = now();
+  if (drag){ endDrag(); return; }
+  lpCancel();
   if (!swipe) return; const {m, dx, dir} = swipe; swipe = null; if (dir !== 'h') return;
   swipeJustHappened = true; setTimeout(() => swipeJustHappened = false, 400);
   m.classList.remove('dragging');
   if (dx < -100){ m.style.transform = 'translateX(-100%)'; const id = m.closest('[data-id]').dataset.id; setTimeout(() => deleteItems([id]), 180); }
-  else m.style.transform = '';
+  else { m.style.transform = ''; setTimeout(() => m.parentElement && m.parentElement.classList.remove('swiping'), 220); }
 });
 
 /* ---------- start ---------- */
 darkMQ.addEventListener ? darkMQ.addEventListener('change', render) : darkMQ.addListener(render);
 applyStoreFixes();
+recategorize();
 render();
 if (token) sync();
 </script>
