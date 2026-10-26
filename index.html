@@ -219,7 +219,7 @@ a{color:inherit;text-decoration:none}
 const GH_OWNER = 'calb417';        // GitHub account
 const GH_REPO  = 'grocery-data';   // private repo that holds the lists
 const GH_FILE  = 'data.json';      // file inside that repo
-const APP_VERSION = '1.7';
+const APP_VERSION = '1.8';
 /* ===================================================================== */
 
 /* ---------- on-screen error display ---------- */
@@ -240,16 +240,19 @@ window.addEventListener('unhandledrejection', e => showError('Promise: ' + ((e.r
    Some iOS versions report 0 for the status-bar safe area in Home Screen apps,
    which lets the page draw under the clock. Measure it; if it comes back too small
    in a Home Screen app, fall back to the status bar height for this iPhone size. */
+let statusInfo = '';
 function fixStatusBar(){
   const probe = document.createElement('div');
   probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none';
   document.body.appendChild(probe); const measured = probe.offsetHeight; probe.remove();
   const standalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  const h = Math.max(screen.height, screen.width);
+  // the real status bar height for each iPhone size (points)
+  const expected = h >= 956 || h === 874 ? 62 : h >= 852 ? 59 : h >= 812 ? 47 : 20;
   let top = measured;
-  if (standalone && measured < 20){
-    const h = Math.max(screen.height, screen.width);
-    top = h >= 852 ? 59 : h >= 812 ? 47 : 20;   // Dynamic Island iPhones, notch iPhones, older iPhones
-  }
+  if (standalone && (measured < 20 || measured > expected + 4)) top = expected;   // too small or too big: use the real height
+  if (!standalone) top = Math.min(measured, expected + 4);
+  statusInfo = measured + '/' + top;
   document.documentElement.style.setProperty('--safe-t', top + 'px');
 }
 fixStatusBar();
@@ -841,7 +844,7 @@ function renderSettings(){
     '<div class="help" id="syncstatus" style="margin-top:10px">' + syncStatusText() + '</div>' +
     '<div class="help">Lists are saved to the private repo ' + esc(GH_OWNER + '/' + GH_REPO) + '. The token stays on this phone only.</div></div></div>';
   h += '<button class="menu-item" style="margin-top:14px" data-act="help">' + IC.help + 'How to use Grocery List</button>';
-  h += '<div class="ver">Grocery List v' + APP_VERSION + '</div>';
+  h += '<div class="ver">Grocery List v' + APP_VERSION + ' · top ' + statusInfo + '</div>';
   return h;
 }
 
@@ -1059,9 +1062,9 @@ function addManySheet(startMode){
   const draw = () => openSheet('<h2>Add several items</h2>' +
     '<div class="seg" id="m_mode" style="margin-bottom:10px"><button data-m="list"' + (mode === 'list' ? ' class="on"' : '') + '>List or photo</button><button data-m="recipe"' + (mode === 'recipe' ? ' class="on"' : '') + '>Recipe</button></div>' +
     (mode === 'list'
-      ? '<p>One item per line. For a handwritten list, tap the box, then tap <b>Scan Text</b> and point your camera at the list.</p>'
+      ? '<p>One item per line. <b>Whole handwritten page:</b> take a photo of it, open the photo, touch and hold the writing, tap <b>Select All</b>, then <b>Copy</b>. Come back and tap <b>Paste</b>. (Scan Text under AutoFill also works, a few lines at a time.)</p>'
       : '<p>In Paprika, open a recipe, tap <b>Share</b>, and copy it (or select the ingredients and copy). Paste it here. You’ll pick which ingredients to add next.</p>') +
-    '<div class="fld"><textarea id="m_text" rows="8" placeholder="' + (mode === 'list' ? 'milk&#10;2 lbs chicken&#10;bananas&#10;eggnog x2' : 'Ingredients:&#10;2 cups flour&#10;1 onion, chopped&#10;3 cloves garlic, minced') + '" autocapitalize="none"></textarea><div class="help" id="m_count"></div></div>' +
+    '<div class="fld"><button class="mini solid" id="m_paste" style="margin-bottom:8px">Paste</button><textarea id="m_text" rows="8" placeholder="' + (mode === 'list' ? 'milk&#10;2 lbs chicken&#10;bananas&#10;eggnog x2' : 'Ingredients:&#10;2 cups flour&#10;1 onion, chopped&#10;3 cloves garlic, minced') + '" autocapitalize="none"></textarea><div class="help" id="m_count"></div></div>' +
     '<div class="btns"><button class="btn" id="m_cancel">Cancel</button><button class="btn primary" id="m_go">' + (mode === 'list' ? 'Add all' : 'Next') + '</button></div>', sh => {
       const ta = sh.querySelector('#m_text'), cnt = sh.querySelector('#m_count'); ta.value = text;
       const upd = () => { text = ta.value;
@@ -1070,6 +1073,13 @@ function addManySheet(startMode){
       ta.addEventListener('input', upd); upd(); setTimeout(() => ta.focus(), 60);
       sh.querySelector('#m_mode').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b || b.dataset.m === mode) return; text = ta.value; mode = b.dataset.m; draw(); });
       sh.querySelector('#m_cancel').onclick = closeSheet;
+      sh.querySelector('#m_paste').onclick = async () => {
+        let clip = ''; try { clip = await navigator.clipboard.readText(); } catch(e){}
+        if (!clip){ toast('Nothing copied yet, or paste was blocked. Tap the box and choose Paste instead.'); return; }
+        ta.value = (ta.value.trim() ? ta.value.replace(/\s*$/, '\n') : '') + clip.trim(); upd();
+        if (mode === 'list' && looksLikeRecipe(ta.value)) return;
+        ta.blur();
+      };
       sh.querySelector('#m_go').onclick = () => {
         text = ta.value;
         if (mode === 'recipe'){ const rows = extractRecipe(text); if (!rows.length){ cnt.textContent = 'No ingredients found. Paste the ingredient lines.'; ta.focus(); return; } recipePreview(rows, text); return; }
@@ -1103,8 +1113,8 @@ const HELP = [
   ['Your list', ['Type in <b>Add an item</b> and press Done. It lands in the right category on its own.', 'Tap the circle to check something off. It moves to <b>Got it</b> at the bottom; tap again to undo.', 'Tap an item to open it: store buttons, Edit, Make usual and Delete.', '<b>Clear checked</b> removes everything you’ve got. The ⋯ menu also has Select, Delete all, and plain-list view.']],
   ['Adding details', ['Tap <b>+</b> to add with details: what kind (organic, boneless), brand, quantity and category.', 'Brand can be Any, a specific brand, Store brand (each store’s own label) or Lowest (results sorted cheapest first).', 'The app remembers what you type, so next time it suggests the item with everything filled in.']],
   ['Checking prices at stores', ['Open an item and tap a store. The store’s site opens already searching for it, at the location you picked on that site.', '<b>Shopping at…</b> under the list name limits which stores show for this trip.', 'Turn stores on or off, reorder them, or fix a link in Settings → Stores.']],
-  ['Scan a handwritten list', ['Tap the lines-and-plus button next to <b>+</b>.', 'Keep <b>List or photo</b> selected, tap the box, then tap <b>Scan Text</b>.', 'Point the camera at your list and tap Insert. Fix anything it misread, then tap <b>Add all</b>.', 'Each line becomes an item. “2 lbs chicken” or “eggs x2” fills in the quantity.']],
-  ['Add from a Paprika recipe', ['In Paprika, open the recipe, tap <b>Share</b>, and copy it. Or select just the ingredients and copy.', 'Here, tap the lines-and-plus button, choose <b>Recipe</b>, paste, and tap <b>Next</b>.', 'Untick what you already have (salt and water start unticked) and tap <b>Add</b>.', 'Amounts like “2 cups” go in the quantity, and words like “chopped” are dropped.']],
+  ['Add a handwritten list', ['Take a photo of the list with your Camera.', 'Open the photo, touch and hold the writing, tap <b>Select All</b>, then <b>Copy</b>.', 'In Grocery List, tap the lines-and-plus button next to <b>+</b>, then tap <b>Paste</b>. Fix anything it misread and tap <b>Add all</b>.', 'Quicker for a few lines: tap the box, then <b>AutoFill</b> → <b>Scan Text</b>. It reads a few lines per scan; scan again to add more.', 'Each line becomes an item. “2 lbs chicken” or “eggs x2” fills in the quantity.']],
+  ['Add from a Paprika recipe', ['In Paprika, open the recipe, tap <b>Share</b>, and copy it. Or select just the ingredients and copy.', 'Here, tap the lines-and-plus button, choose <b>Recipe</b>, tap <b>Paste</b>, then <b>Next</b>.', 'Untick what you already have (salt and water start unticked) and tap <b>Add</b>.', 'Amounts like “2 cups” go in the quantity, and words like “chopped” are dropped.']],
   ['Usuals and lists', ['Star an item with <b>Make usual</b> to keep it in Usuals. Tap <b>+ Add</b> there to put it back on your list.', 'Tap the list name at the top to switch lists or make a new one, like Costco run.']],
   ['Reorder and delete', ['Hold an item for a moment, then drag it up or down.', 'Hold a category’s colored label to move the whole category.', 'Swipe an item left to delete it. Every delete has an <b>Undo</b>.']],
   ['Sharing between phones', ['Both phones use the same token (Settings → Sync), so lists, usuals and settings stay in step.', 'Changes show on the other phone within about 30 seconds, or right away when the app is reopened.', 'The pill at the top says <b>Synced</b> when everything is saved.']]
